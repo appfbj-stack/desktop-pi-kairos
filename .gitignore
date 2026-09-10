@@ -65,6 +65,10 @@ tmp/
 temp/
 .tmp/
 
+# lixeira de deploys com falha e trash
+apps/electron/.trash/
+apps/electron/_deployed_tmp_*/
+
 # install/rebuild logs (gerados durante setup, não versionar)
 *.log
 !.gitkeep

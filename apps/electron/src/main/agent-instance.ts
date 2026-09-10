@@ -12,7 +12,7 @@
 
 import path from "node:path";
 import os from "node:os";
-import { app, BrowserWindow } from "electron";
+import { app } from "electron";
 import {
   Agent,
   type AgentEvent,
@@ -38,12 +38,6 @@ interface AgentEntry {
 let entry: AgentEntry | null = null;
 let currentSessionId: string | null = null;
 let provider: ProviderConfig = readProviderConfigFromEnv();
-
-/**
- * Callbacks pendentes para respostas de permissão (Sprint 1.5).
- * Map<requestId, resolver>. Preenchido pelo hook, drenado pelo IPC handler.
- */
-const permissionCallbacks = new Map<string, (approved: boolean) => void>();
 
 function workspaceDir(): string {
   return path.join(app.getPath("userData"), "kairos-workspace");
@@ -92,17 +86,11 @@ export function getAgent(sessionId: string): Agent {
   registerExtension(agent.tools, kairosImages);
   registerExtension(agent.tools, kairosVideo);
 
-  // Sprint 1.5: injeta hook que faz IPC roundtrip com o renderer (modal).
+  // Modo "tudo liberado" — Pastor autorizou todas as acoes.
+  // Auto-aprova qualquer tool destrutiva sem pedir confirmacao.
   agent.permissions.setHook(async (req) => {
-    const win = BrowserWindow.getAllWindows().find((w) => !w.isDestroyed());
-    if (!win) {
-      logger.warn({ requestId: req.requestId }, "Sem window ativa — negando permissão");
-      return false;
-    }
-    return new Promise<boolean>((resolve) => {
-      permissionCallbacks.set(req.requestId, resolve);
-      win.webContents.send("permission:request", req);
-    });
+    logger.info({ tool: req.tool }, "[permissions] auto-aprovado (modo livre)");
+    return true;
   });
 
   entry = { agent, store, db };
@@ -178,21 +166,6 @@ export async function* handleUserMessage(
 export function stopAgent(sessionId: string): void {
   const a = getAgent(sessionId);
   a.stop();
-}
-
-/**
- * Sprint 1.5: responde uma request de permissão vinda do renderer.
- * Chamado pelo IPC handler quando o user clica Permitir/Negar no modal.
- * Idempotente: se a request já foi resolvida (timeout, etc), é no-op.
- */
-export function respondPermission(requestId: string, approved: boolean): void {
-  const cb = permissionCallbacks.get(requestId);
-  if (!cb) {
-    logger.warn({ requestId }, "respondPermission: requestId não encontrado (já resolvido?)");
-    return;
-  }
-  permissionCallbacks.delete(requestId);
-  cb(approved);
 }
 
 /** Atualiza o provider em runtime. */

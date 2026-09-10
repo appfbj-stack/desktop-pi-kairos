@@ -2,7 +2,7 @@
  * Janela principal do Electron.
  */
 
-import { BrowserWindow, shell } from "electron";
+import { app, BrowserWindow, shell } from "electron";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -60,9 +60,12 @@ export function createMainWindow({ isDev }: { isDev: boolean }): BrowserWindow {
     win.loadURL("http://localhost:5173");
     win.webContents.openDevTools({ mode: "detach" });
   } else {
-    const file = path.join(__dirname, "../../dist-renderer/index.html");
-    console.log(`[window] loadFile ${file}`);
-    win.loadFile(file);
+    // No empacotado, app.getAppPath() retorna o path do app.asar (dentro de resources/).
+    // O dist-renderer esta em <appPath>/dist-renderer/index.html. __dirname nao funciona
+    // dentro de app.asar (resolve pra outro lugar).
+    const indexHtml = path.join(app.getAppPath(), "dist-renderer", "index.html");
+    console.log(`[window] loadFile ${indexHtml}`);
+    win.loadFile(indexHtml);
   }
 
   return win;

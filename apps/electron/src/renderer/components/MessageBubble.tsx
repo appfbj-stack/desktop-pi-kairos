@@ -86,7 +86,13 @@ export function MessageBubble({ msg }: { msg: BubbleMessage }) {
               ))}
             </div>
           )}
-          {msg.content || (isUser ? "" : "...")}
+          {(() => {
+            const MAX = 280;
+            const full = msg.content || "";
+            const tooLong = !isUser && full.length > MAX;
+            const shown = tooLong ? full.slice(0, MAX).trimEnd() + "…" : full;
+            return shown || (isUser ? "" : "...");
+          })()}
           {!isUser && msg.content && (
             <div className="mt-1">
               <Markdown>{msg.content}</Markdown>

@@ -16,7 +16,7 @@
     "typecheck": "tsc -p tsconfig.preload.json --noEmit && tsc -p tsconfig.node.json --noEmit && tsc -p tsconfig.web.json --noEmit",
     "icons": "node build/generate-icon.mjs",
     "vendor": "node build/copy-vendor.mjs",
-    "deploy": "pnpm deploy --filter @kairos/electron --prod ./_deployed",
+    "deploy": "pnpm --filter @kairos/electron deploy --legacy --prod ./_deployed",
     "package:win": "cd ./_deployed && pnpm exec electron-builder --win",
     "package:win:dir": "cd ./_deployed && pnpm exec electron-builder --win --dir",
     "package": "pnpm icons && pnpm vendor && pnpm build && pnpm deploy && pnpm package:win",
@@ -44,7 +44,9 @@
       "!**/*.map"
     ],
     "asarUnpack": [
-      "**/better-sqlite3/**"
+      "**/better-sqlite3/**",
+      "**/pino-pretty/**",
+      "**/pino/**"
     ],
     "win": {
       "target": [

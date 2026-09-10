@@ -31,7 +31,7 @@ import type { Tool as KairosTool } from "../tools/registry.js";
 import { zodToTypebox } from "./zod-to-typebox.js";
 import { buildModel, resolveApiKey, type ProviderConfig } from "./provider.js";
 
-const MAX_TOOL_ITERATIONS = 25;
+const DEFAULT_MAX_TOOL_ITERATIONS = 25;
 
 /** Loop principal — emite AgentEvent conforme o agente processa. */
 export async function* runLlmLoop(
@@ -45,6 +45,7 @@ export async function* runLlmLoop(
     provider: { provider: "openrouter", modelId: "anthropic/claude-3.5-sonnet" },
   }
 ): AsyncIterable<AgentEvent> {
+  const maxIterations = agent.config.maxToolIterations ?? DEFAULT_MAX_TOOL_ITERATIONS;
   const model = buildModel(options.provider);
   const apiKey = resolveApiKey(options.provider);
 
@@ -90,7 +91,7 @@ export async function* runLlmLoop(
   messages.push(userMsg);
 
   let iteration = 0;
-  while (iteration++ < MAX_TOOL_ITERATIONS) {
+  while (iteration++ < maxIterations) {
     if (agent.permissions.isAborted()) {
       yield { type: "done", reason: "aborted" };
       return;
@@ -99,7 +100,16 @@ export async function* runLlmLoop(
     const context: Context = {
       systemPrompt:
         options.systemPrompt ??
-        "Você é o Kairós, um agente de IA desktop. Responda em português do Brasil. Use as tools disponíveis para executar tarefas no computador do usuário. Sempre peça confirmação antes de ações destrutivas.",
+        [
+          "Você é o Kairós, um assistente pessoal de IA que roda no Windows do usuário.",
+          "Responda SEMPRE em português do Brasil.",
+          "",
+          "REGRA DE OURO: respostas CURTAS (máx 2-3 frases). Sem cumprimentos longos, sem disclaimers, sem floreios. Vá direto ao ponto.",
+          "",
+          "Você TEM acesso ao computador do usuário através das tools. Quando o usuário pedir qualquer ação, use as tools IMEDIATAMENTE — não diga que 'não tem acesso' ou que 'precisa de permissão'.",
+          "",
+          "Estilo: 1-3 linhas no texto. Listas só se útil. Mostre o que fez (ex: 'Pronto, planilha criada em C:/Users/.../lista.xlsx').",
+        ].join("\n"),
       messages,
       tools: tools.length > 0 ? tools : undefined,
     };
@@ -109,7 +119,7 @@ export async function* runLlmLoop(
     // 3. Stream
     let lastMessage: AssistantMessage | undefined;
     try {
-      for await (const event of stream(model, context, { apiKey })) {
+      for await (const event of stream(model, context, { apiKey, maxTokens: 512 })) {
         const result = yield* processStreamEvent(event, agent);
         if (result) lastMessage = result;
       }
@@ -276,7 +286,7 @@ export async function* runLlmLoop(
     return;
   }
 
-  yield { type: "error", message: `Loop excedeu ${MAX_TOOL_ITERATIONS} iterações` };
+  yield { type: "error", message: `Loop excedeu ${maxIterations} iterações` };
   yield { type: "done", reason: "error" };
 }
 

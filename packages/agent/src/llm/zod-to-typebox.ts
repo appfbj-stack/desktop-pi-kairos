@@ -55,8 +55,16 @@ export function zodToTypebox(schema: z.ZodType): TSchema {
       if (def.maxLength?.value) opts.maxLength = def.maxLength.value;
       return Type.String(opts);
     }
-    case "ZodNumber":
-      return Type.Number();
+    case "ZodNumber": {
+      const opts: { minimum?: number; maximum?: number } = {};
+      if (def.minimum?.value !== undefined && def.minimum?.value !== null) {
+        opts.minimum = def.minimum.value;
+      }
+      if (def.maximum?.value !== undefined && def.maximum?.value !== null) {
+        opts.maximum = def.maximum.value;
+      }
+      return Type.Number(opts);
+    }
     case "ZodBoolean":
       return Type.Boolean();
     case "ZodLiteral": {
@@ -71,7 +79,7 @@ export function zodToTypebox(schema: z.ZodType): TSchema {
         (def.values ?? []).map((v) => Type.Literal(v)) as unknown as never
       );
     case "ZodArray": {
-      const valueType = zodToTypebox(def.type ?? Type.Unknown() as unknown as z.ZodType);
+      const valueType = zodToTypebox(def.type ?? (Type.Unknown() as unknown as z.ZodType));
       return Type.Array(valueType);
     }
     case "ZodObject": {
@@ -81,6 +89,16 @@ export function zodToTypebox(schema: z.ZodType): TSchema {
         properties[key] = zodToTypebox(value as z.ZodType);
       }
       return Type.Object(properties);
+    }
+    case "ZodTuple": {
+      // ZodTuple nao existe na v3; mantido por seguranca
+      const items = (def as unknown as { items?: z.ZodType[] }).items ?? [];
+      return Type.Tuple(items.map((it) => zodToTypebox(it)) as unknown as never);
+    }
+    case "ZodRecord": {
+      // Record<key, value> -> Type.Record(Type.String(), valueType)
+      const valueType = (def as unknown as { valueType?: z.ZodType }).valueType;
+      return Type.Record(Type.String(), valueType ? zodToTypebox(valueType) : Type.Unknown());
     }
     case "ZodNull":
       return Type.Null();
@@ -92,6 +110,12 @@ export function zodToTypebox(schema: z.ZodType): TSchema {
       if (opt) {
         return Type.Union(opt.map((o) => zodToTypebox(o)) as unknown as never);
       }
+      return Type.Unknown();
+    }
+    case "ZodEffects": {
+      // ZodEffects (refine, transform, preprocess) -> desembrulha o schema interno
+      const inner = (def as unknown as { schema?: z.ZodType }).schema;
+      if (inner) return zodToTypebox(inner);
       return Type.Unknown();
     }
     case "ZodAny":

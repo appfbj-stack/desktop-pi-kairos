@@ -42,13 +42,4 @@ export class ToolRegistry {
   list(): Tool[] {
     return [...this.tools.values()];
   }
-
-  /**
-   * Gera a lista de tools no formato esperado pelo LLM (OpenAI tool calling).
-   * Sprint 1 implementa isso de verdade.
-   */
-  toLLMTools(): unknown[] {
-    // Placeholder. Sprint 1 converte Tool[] → formato do provider.
-    return [];
-  }
 }

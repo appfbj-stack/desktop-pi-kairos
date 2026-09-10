@@ -42,9 +42,9 @@ export interface ProviderConfig {
   baseUrl?: string;
 }
 
-// Default = NVIDIA Nemotron 3 Super 120B via OpenRouter (free, excelente raciocínio e tool-use).
-// O usuário pode trocar pelo painel ⚙️ na UI a qualquer momento.
-const DEFAULT_MODEL_ID = "nvidia/nemotron-3-super-120b-a12b:free";
+// Default = Meta Llama 3.1 8B via OpenRouter (free, conciso, baixo custo de tokens).
+// Antes: Nemotron 120B (verboso) -> Llama 70B (verboso tb). 8b é mais economico.
+const DEFAULT_MODEL_ID = "meta-llama/llama-3.1-8b-instruct:free";
 
 // Default Ollama: localhost. Pode ser customizado via KAIROS_OLLAMA_URL.
 const DEFAULT_OLLAMA_URL = "http://localhost:11434/v1";

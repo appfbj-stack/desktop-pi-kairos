@@ -15,7 +15,6 @@ import {
   getProvider,
   getDebugInfo,
   getStore,
-  respondPermission,
 } from "./agent-instance.js";
 import { listOllamaModels, type AgentEvent, type ProviderConfig } from "@kairos/agent";
 import { logger } from "@kairos/core";
@@ -259,23 +258,6 @@ export function registerIpcHandlers(): void {
       dangerous: t.dangerous ?? false,
     }));
   });
-
-  // ── Permissions (Sprint 1.5) ───────────────────────────────────
-
-  /**
-   * Renderer responde uma request de permissão (modal Permitir/Negar).
-   * Encaminha pro `permissions.resolve()` que destrava a Promise do loop.
-   */
-  ipcMain.handle(
-    "permission:response",
-    async (_event, requestId: string, approved: boolean) => {
-      if (typeof requestId !== "string" || !requestId) {
-        throw new Error("requestId inválido");
-      }
-      respondPermission(requestId, approved === true);
-      return { ok: true };
-    }
-  );
 
   logger.info("IPC handlers registrados");
 }

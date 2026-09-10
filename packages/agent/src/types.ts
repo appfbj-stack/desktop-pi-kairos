@@ -16,6 +16,11 @@ export interface AgentConfig {
   enabledExtensions: string[];
   /** Locale da UI (default: `pt-BR`). */
   locale?: string;
+  /**
+   * Limite de iterações do loop agentico antes de abortar com erro
+   * (evita loop infinito quando o LLM não converge). Default: 25.
+   */
+  maxToolIterations?: number;
 }
 
 export type AgentEvent =
