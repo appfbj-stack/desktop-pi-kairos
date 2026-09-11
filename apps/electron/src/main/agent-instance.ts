@@ -21,6 +21,7 @@ import {
   registerExtension,
   type ProviderConfig,
 } from "@kairos/agent";
+import kairosStream from "@kairos/extension-stream";
 import kairosVideo from "@kairos/extension-video";
 import kairosFiles from "@kairos/extension-files";
 import kairosSpreadsheets from "@kairos/extension-spreadsheets";
@@ -74,6 +75,7 @@ export function getAgent(sessionId: string): Agent {
       "kairos-pdf-create",
       "kairos-documents",
       "kairos-images",
+      "kairos-stream",
       "kairos-video",
     ],
     locale: "pt-BR",
@@ -84,6 +86,7 @@ export function getAgent(sessionId: string): Agent {
   registerExtension(agent.tools, kairosPdfCreate);
   registerExtension(agent.tools, kairosDocuments);
   registerExtension(agent.tools, kairosImages);
+  registerExtension(agent.tools, kairosStream);
   registerExtension(agent.tools, kairosVideo);
 
   // Modo "tudo liberado" — Pastor autorizou todas as acoes.

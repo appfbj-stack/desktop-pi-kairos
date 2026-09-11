@@ -29,6 +29,7 @@ const PACKAGES = [
   { name: "extension-pdf-create", src: "packages/extensions/kairos-pdf-create" },
   { name: "extension-documents", src: "packages/extensions/kairos-documents" },
   { name: "extension-images", src: "packages/extensions/kairos-images" },
+  { name: "extension-stream", src: "packages/extensions/kairos-stream" },
   { name: "extension-video", src: "packages/extensions/kairos-video" },
 ];
 

@@ -84,6 +84,7 @@
     "@kairos/extension-images": "workspace:*",
     "@kairos/extension-pdf-create": "workspace:*",
     "@kairos/extension-spreadsheets": "workspace:*",
+    "@kairos/extension-stream": "workspace:*",
     "@kairos/extension-video": "workspace:*",
     "highlight.js": "^11.12.0",
     "react": "^18.3.1",
