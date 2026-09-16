@@ -28,6 +28,7 @@ import kairosSpreadsheets from "@kairos/extension-spreadsheets";
 import kairosPdfCreate from "@kairos/extension-pdf-create";
 import kairosDocuments from "@kairos/extension-documents";
 import kairosImages from "@kairos/extension-images";
+import kairosMemory from "@kairos/extension-memory";
 import { openDatabase, ConversationStore, logger, type KairósDB } from "@kairos/core";
 
 interface AgentEntry {
@@ -44,6 +45,15 @@ function workspaceDir(): string {
   return path.join(app.getPath("userData"), "kairos-workspace");
 }
 
+/** Seta env var uma vez no startup pra extensions descobrirem o workspace. */
+function exportWorkspaceEnv(): void {
+  const dir = workspaceDir();
+  if (process.env.KAIROS_WORKSPACE_DIR !== dir) {
+    process.env.KAIROS_WORKSPACE_DIR = dir;
+    logger.info({ workspace: dir }, "KAIROS_WORKSPACE_DIR exportado");
+  }
+}
+
 /** Garante DB aberto e store disponível. */
 function ensureStore(): { db: KairósDB; store: ConversationStore } {
   const workspace = workspaceDir();
@@ -54,6 +64,8 @@ function ensureStore(): { db: KairósDB; store: ConversationStore } {
 /** Cria (ou retorna) o Agent. Idempotente. */
 export function getAgent(sessionId: string): Agent {
   if (entry && currentSessionId === sessionId) return entry.agent;
+
+  exportWorkspaceEnv();
 
   logger.info({ sessionId, provider }, "Criando Agent");
 
@@ -77,6 +89,7 @@ export function getAgent(sessionId: string): Agent {
       "kairos-images",
       "kairos-stream",
       "kairos-video",
+      "kairos-memory",
     ],
     locale: "pt-BR",
   });
@@ -88,6 +101,7 @@ export function getAgent(sessionId: string): Agent {
   registerExtension(agent.tools, kairosImages);
   registerExtension(agent.tools, kairosStream);
   registerExtension(agent.tools, kairosVideo);
+  registerExtension(agent.tools, kairosMemory);
 
   // Modo "tudo liberado" — Pastor autorizou todas as acoes.
   // Auto-aprova qualquer tool destrutiva sem pedir confirmacao.

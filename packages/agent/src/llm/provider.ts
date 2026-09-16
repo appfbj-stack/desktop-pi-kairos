@@ -42,9 +42,13 @@ export interface ProviderConfig {
   baseUrl?: string;
 }
 
-// Default = Meta Llama 3.1 8B via OpenRouter (free, conciso, baixo custo de tokens).
-// Antes: Nemotron 120B (verboso) -> Llama 70B (verboso tb). 8b é mais economico.
-const DEFAULT_MODEL_ID = "meta-llama/llama-3.1-8b-instruct:free";
+// Default = Nex N2.5 mini via OpenRouter (free, conciso, funciona em 2026-09).
+// Histórico:
+//   - 1.0: anthropic/claude-3.5-sonnet (placeholder, nao existia no catalogo)
+//   - 1.5: nvidia/nemotron-120b (verboso, ignorava maxTokens)
+//   - 1.6: meta-llama/llama-3.1-8b-instruct:free (rapido, mas REMOVIDO do OpenRouter em 2026-09)
+//   - 1.13+: nex-agi/nex-n2.5-mini:free (atual, funciona p/ chat, tool calls lentas)
+const DEFAULT_MODEL_ID = "nex-agi/nex-n2.5-mini:free";
 
 // Default Ollama: localhost. Pode ser customizado via KAIROS_OLLAMA_URL.
 const DEFAULT_OLLAMA_URL = "http://localhost:11434/v1";
