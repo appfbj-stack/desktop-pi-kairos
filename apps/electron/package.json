@@ -82,7 +82,7 @@
     "@kairos/extension-documents": "workspace:*",
     "@kairos/extension-files": "workspace:*",
     "@kairos/extension-images": "workspace:*",
-    "@kairos/extension-memory": "workspace:*",
+    "@kairos/extension-intelligence": "workspace:*",
     "@kairos/extension-pdf-create": "workspace:*",
     "@kairos/extension-spreadsheets": "workspace:*",
     "@kairos/extension-stream": "workspace:*",

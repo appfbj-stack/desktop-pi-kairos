@@ -1,4 +1,7 @@
 /**
+ * @deprecated  Sprint 1.15 — substituído por `@kairos/extension-intelligence`.
+ *              Mantido aqui pra referencia. Vai ser removido na Sprint 1.17.
+ *
  * kairos-memory — extensão de memória persistente cross-conversa com RAG.
  *
  * Tools expostas:
