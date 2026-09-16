@@ -5,7 +5,7 @@
  * Sprint 1.5: adicionado onPermissionRequest e respondPermission (modal).
  */
 
-import { contextBridge, ipcRenderer } from "electron";
+import { contextBridge, ipcRenderer, webUtils } from "electron";
 import type { AgentEvent, ProviderConfig } from "@kairos/agent";
 
 export interface AttachmentSummary {
@@ -125,8 +125,33 @@ const api = {
     rename: (id: string, title: string): Promise<{ ok: true }> =>
       ipcRenderer.invoke("conversations:rename", id, title),
   },
+
+  // Workspace (Sprint 1.14) — árvore de pastas
+  workspace: {
+    root: (): Promise<{ root: string }> => ipcRenderer.invoke("workspace:root"),
+    list: (relPath?: string): Promise<{
+      root: string;
+      current: string;
+      items: { name: string; path: string; isDir: boolean; size: number; modifiedAt: number }[];
+    }> => ipcRenderer.invoke("workspace:list", relPath),
+    mkdir: (relPath: string): Promise<{ ok: true; path: string }> =>
+      ipcRenderer.invoke("workspace:mkdir", relPath),
+    delete: (relPath: string): Promise<{ ok: true; path: string }> =>
+      ipcRenderer.invoke("workspace:delete", relPath),
+    rename: (oldRel: string, newName: string): Promise<{ ok: true; from: string; to: string }> =>
+      ipcRenderer.invoke("workspace:rename", oldRel, newName),
+    readText: (relPath: string): Promise<{ path: string; name: string; size: number; content: string }> =>
+      ipcRenderer.invoke("workspace:read-text", relPath),
+    writeText: (relPath: string, content: string): Promise<{ ok: true; path: string; size: number }> =>
+      ipcRenderer.invoke("workspace:write-text", relPath, content),
+  },
 };
 
 contextBridge.exposeInMainWorld("kairos", api);
+
+/** Recupera path absoluto de um File (drag-and-drop). Electron 32+ removeu File.path. */
+contextBridge.exposeInMainWorld("kairosPath", {
+  fromFile: (file: File): string => webUtils.getPathForFile(file),
+});
 
 export type KairosAPI = typeof api;

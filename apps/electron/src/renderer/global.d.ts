@@ -9,6 +9,9 @@ import type { KairosAPI } from "../preload/index.js";
 declare global {
   interface Window {
     kairos?: KairosAPI;
+    kairosPath?: {
+      fromFile: (file: File) => string;
+    };
   }
 }
 

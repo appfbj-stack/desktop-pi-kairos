@@ -55,3 +55,105 @@ body,
 html {
   scroll-behavior: smooth;
 }
+
+/* ── Theme light (Sprint 1.14) ────────────────────────────────────── */
+
+html.light {
+  --bg-base: #f8fafc;
+  --bg-panel: #ffffff;
+  --bg-panel-2: #f1f5f9;
+  --bg-input: #ffffff;
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+  --text-muted: #94a3b8;
+  --border: #e2e8f0;
+  --border-strong: #cbd5e1;
+  --accent: #059669;
+  --accent-bg: #ecfdf5;
+  --shadow: rgba(15, 23, 42, 0.08);
+}
+
+html.light body,
+html.light {
+  background: var(--bg-base);
+  color: var(--text-primary);
+}
+
+html.light ::-webkit-scrollbar-thumb {
+  background: rgb(148 163 184 / 0.6);
+}
+
+/* Sidebar — bg-slate-950 / border-slate-800 */
+html.light .bg-slate-950 { background: var(--bg-panel) !important; }
+html.light .bg-slate-900 { background: var(--bg-panel-2) !important; }
+html.light .bg-slate-800 { background: #e2e8f0 !important; }
+html.light .bg-slate-700 { background: #cbd5e1 !important; }
+html.light .bg-slate-800\/80,
+html.light .bg-slate-800\/60,
+html.light .bg-slate-800\/50,
+html.light .bg-slate-900\/40,
+html.light .bg-slate-900\/80 {
+  background: var(--bg-panel) !important;
+}
+
+/* Texto */
+html.light .text-slate-100 { color: var(--text-primary) !important; }
+html.light .text-slate-200 { color: var(--text-primary) !important; }
+html.light .text-slate-300 { color: var(--text-secondary) !important; }
+html.light .text-slate-400 { color: var(--text-secondary) !important; }
+html.light .text-slate-500 { color: var(--text-muted) !important; }
+html.light .text-slate-600 { color: var(--text-muted) !important; }
+
+/* Bordas */
+html.light .border-slate-800,
+html.light .border-slate-700,
+html.light .border-slate-700\/50,
+html.light .border-slate-700\/40,
+html.light .border-slate-700\/30 {
+  border-color: var(--border) !important;
+}
+
+/* Hover em rows de conversa */
+html.light .hover\:bg-slate-900:hover,
+html.light .hover\:bg-slate-800:hover,
+html.light .hover\:bg-slate-700:hover {
+  background: var(--bg-panel-2) !important;
+  color: var(--text-primary) !important;
+}
+
+/* Bolhas */
+html.light .bg-slate-800.text-slate-100 {
+  background: var(--bg-panel) !important;
+  color: var(--text-primary) !important;
+  border-color: var(--border) !important;
+}
+
+/* Inputs */
+html.light textarea,
+html.light input[type="text"],
+html.light input[type="password"],
+html.light select {
+  background: var(--bg-input) !important;
+  color: var(--text-primary) !important;
+  border-color: var(--border-strong) !important;
+}
+
+/* Code blocks no markdown */
+html.light pre {
+  background: #f1f5f9 !important;
+  color: #0f172a !important;
+  border: 1px solid var(--border);
+}
+html.light code {
+  background: #f1f5f9 !important;
+  color: #0f172a !important;
+}
+
+/* Scrollbar thumb em light */
+html.light ::-webkit-scrollbar-track { background: transparent; }
+
+/* Header backdrop-blur em light */
+html.light .bg-slate-900\/80,
+html.light .bg-slate-950\/80 {
+  background: rgba(255, 255, 255, 0.8) !important;
+}

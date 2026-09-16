@@ -12,6 +12,8 @@ export function InputBar({
   onStop,
   busy,
   disabled,
+  onAttach,
+  onAttachWorkspace,
 }: {
   value: string;
   onChange: (v: string) => void;
@@ -19,6 +21,8 @@ export function InputBar({
   onStop: () => void;
   busy: boolean;
   disabled?: boolean;
+  onAttach?: () => void;
+  onAttachWorkspace?: () => void;
 }) {
   const ref = useRef<HTMLTextAreaElement>(null);
 
@@ -40,6 +44,28 @@ export function InputBar({
   return (
     <div className="border-t border-slate-800 bg-slate-950/80 px-4 py-3 backdrop-blur">
       <div className="mx-auto flex max-w-3xl items-end gap-2">
+        {onAttach && (
+          <button
+            type="button"
+            onClick={onAttach}
+            disabled={busy}
+            className="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-700 bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-slate-100 disabled:opacity-40 transition-colors"
+            title="Anexar arquivo do disco"
+          >
+            📎
+          </button>
+        )}
+        {onAttachWorkspace && (
+          <button
+            type="button"
+            onClick={onAttachWorkspace}
+            disabled={busy}
+            className="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-700 bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-slate-100 disabled:opacity-40 transition-colors"
+            title="Anexar arquivo do workspace"
+          >
+            📂
+          </button>
+        )}
         <textarea
           ref={ref}
           value={value}

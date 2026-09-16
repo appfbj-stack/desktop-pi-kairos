@@ -4,7 +4,7 @@
  * Sprint 1.3: adicionado dialog:open-file e agent:attach.
  */
 
-import { ipcMain, BrowserWindow, dialog, type IpcMainInvokeEvent } from "electron";
+import { app, ipcMain, BrowserWindow, dialog, type IpcMainInvokeEvent } from "electron";
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import {
@@ -257,6 +257,121 @@ export function registerIpcHandlers(): void {
       description: t.description,
       dangerous: t.dangerous ?? false,
     }));
+  });
+
+  // ── Workspace (Sprint 1.14) — árvore de pastas onde o usuário organiza conteúdo ──
+
+  function workspaceRoot(): string {
+    return path.join(app.getPath("userData"), "kairos-workspace");
+  }
+
+  /** Converte path absoluto para path relativo ao workspaceRoot, com / como separador. */
+  function toRelative(abs: string): string {
+    const root = workspaceRoot();
+    const rel = path.relative(root, abs).split(path.sep).join("/");
+    return rel === "" ? "/" : rel;
+  }
+
+  /** Garante que absPath está dentro do workspace (anti-escape). */
+  function ensureInside(absPath: string): string {
+    const root = workspaceRoot();
+    const normalized = path.resolve(absPath);
+    const rootResolved = path.resolve(root);
+    if (normalized !== rootResolved && !normalized.startsWith(rootResolved + path.sep)) {
+      throw new Error(`Acesso negado: fora do workspace (${toRelative(normalized)})`);
+    }
+    return normalized;
+  }
+
+  ipcMain.handle("workspace:root", async () => {
+    const root = workspaceRoot();
+    await fs.mkdir(root, { recursive: true });
+    return { root };
+  });
+
+  /** Lista entradas (pastas + arquivos) de um path relativo ao workspace. */
+  ipcMain.handle("workspace:list", async (_event, relPath: string = "/") => {
+    const root = workspaceRoot();
+    await fs.mkdir(root, { recursive: true });
+    const abs = ensureInside(path.join(root, relPath || "/"));
+    const entries = await fs.readdir(abs, { withFileTypes: true });
+    const items = await Promise.all(
+      entries.map(async (e) => {
+        const full = path.join(abs, e.name);
+        const stat = await fs.stat(full);
+        return {
+          name: e.name,
+          path: toRelative(full),
+          isDir: e.isDirectory(),
+          size: e.isDirectory() ? 0 : stat.size,
+          modifiedAt: stat.mtimeMs,
+        };
+      })
+    );
+    // Pastas primeiro, depois arquivos, ordem alfabética
+    items.sort((a, b) => {
+      if (a.isDir !== b.isDir) return a.isDir ? -1 : 1;
+      return a.name.localeCompare(b.name, "pt-BR");
+    });
+    return { root, current: toRelative(abs), items };
+  });
+
+  /** Cria pasta. relPath = path relativo completo incluindo o nome da nova pasta. */
+  ipcMain.handle("workspace:mkdir", async (_event, relPath: string) => {
+    if (!relPath || typeof relPath !== "string") throw new Error("path inválido");
+    const root = workspaceRoot();
+    await fs.mkdir(root, { recursive: true });
+    const abs = ensureInside(path.join(root, relPath));
+    await fs.mkdir(abs, { recursive: true });
+    return { ok: true, path: toRelative(abs) };
+  });
+
+  /** Deleta arquivo ou pasta (recursive). */
+  ipcMain.handle("workspace:delete", async (_event, relPath: string) => {
+    if (!relPath || relPath === "/") throw new Error("Não pode deletar a raiz");
+    const root = workspaceRoot();
+    const abs = ensureInside(path.join(root, relPath));
+    await fs.rm(abs, { recursive: true, force: true });
+    return { ok: true, path: relPath };
+  });
+
+  /** Renomeia/move arquivo ou pasta. */
+  ipcMain.handle("workspace:rename", async (_event, oldRel: string, newName: string) => {
+    if (!oldRel || !newName || newName.includes("/") || newName.includes("\\")) {
+      throw new Error("nome inválido");
+    }
+    const root = workspaceRoot();
+    const oldAbs = ensureInside(path.join(root, oldRel));
+    const newAbs = ensureInside(path.join(path.dirname(oldAbs), newName));
+    await fs.rename(oldAbs, newAbs);
+    return { ok: true, from: oldRel, to: toRelative(newAbs) };
+  });
+
+  /** Lê arquivo de texto. */
+  ipcMain.handle("workspace:read-text", async (_event, relPath: string) => {
+    const root = workspaceRoot();
+    const abs = ensureInside(path.join(root, relPath));
+    const stat = await fs.stat(abs);
+    if (stat.isDirectory()) throw new Error("É uma pasta, não arquivo");
+    const buf = await fs.readFile(abs);
+    const ext = path.extname(abs).toLowerCase();
+    const TEXT_EXT = new Set([".txt", ".md", ".csv", ".tsv", ".json", ".xml", ".yaml", ".yml", ".log", ".ini", ".conf", ".env", ".html", ".htm"]);
+    if (!TEXT_EXT.has(ext)) {
+      throw new Error(`Não é arquivo de texto (${ext}). Use anexar via chat pra binários.`);
+    }
+    const text = buf.toString("utf-8");
+    return { path: relPath, name: path.basename(abs), size: stat.size, content: text };
+  });
+
+  /** Escreve arquivo de texto (cria ou sobrescreve). */
+  ipcMain.handle("workspace:write-text", async (_event, relPath: string, content: string) => {
+    if (!relPath || typeof content !== "string") throw new Error("path ou content inválido");
+    const root = workspaceRoot();
+    const abs = ensureInside(path.join(root, relPath));
+    await fs.mkdir(path.dirname(abs), { recursive: true });
+    await fs.writeFile(abs, content, "utf-8");
+    const stat = await fs.stat(abs);
+    return { ok: true, path: relPath, size: stat.size };
   });
 
   logger.info("IPC handlers registrados");

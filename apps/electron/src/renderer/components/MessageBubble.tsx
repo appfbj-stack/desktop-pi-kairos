@@ -17,7 +17,7 @@ export interface BubbleMessage {
   ts: number;
 }
 
-export function MessageBubble({ msg }: { msg: BubbleMessage }) {
+export function MessageBubble({ msg, onSaveAsNote }: { msg: BubbleMessage; onSaveAsNote?: (m: BubbleMessage) => void }) {
   const [copied, setCopied] = useState(false);
   const tsLabel = new Date(msg.ts).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
 
@@ -110,6 +110,16 @@ export function MessageBubble({ msg }: { msg: BubbleMessage }) {
           >
             {copied ? "✓ copiado" : "copiar"}
           </button>
+          {!isUser && onSaveAsNote && (
+            <button
+              type="button"
+              onClick={() => onSaveAsNote(msg)}
+              className="rounded-md bg-slate-800 px-2 py-0.5 text-[10px] text-slate-400 hover:text-slate-200 border border-slate-700/50"
+              title="Salvar como nota no workspace"
+            >
+              💾 nota
+            </button>
+          )}
           <span className="rounded-md bg-slate-800 px-2 py-0.5 text-[10px] text-slate-500 border border-slate-700/50">
             {tsLabel}
           </span>

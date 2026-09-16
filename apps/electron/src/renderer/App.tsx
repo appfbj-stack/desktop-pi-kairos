@@ -15,6 +15,8 @@ import { EmptyState } from "./components/EmptyState";
 import { TypingIndicator } from "./components/TypingIndicator";
 import { Markdown } from "./components/Markdown";
 import type { ToolCall } from "./components/ToolCallCard";
+import { WorkspacePanel } from "./components/WorkspacePanel";
+import { WorkspacePicker } from "./components/WorkspacePicker";
 
 interface Conversation {
   id: string;
@@ -55,6 +57,12 @@ export function App() {
   const [toolCount, setToolCount] = useState(0);
   const [showSettings, setShowSettings] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [sidebarTab, setSidebarTab] = useState<"conversations" | "workspace">("conversations");
+  const [showWorkspacePicker, setShowWorkspacePicker] = useState(false);
+  const [theme, setTheme] = useState<"dark" | "light">(() => {
+    return (typeof window !== "undefined" && (localStorage.getItem("kairos:theme") as "dark" | "light")) || "dark";
+  });
+  const [dragOver, setDragOver] = useState(false);
   const [ollamaModels, setOllamaModels] = useState<
     { id: string; name: string; size: number; modified_at: string; family?: string; parameter_size?: string; quantization_level?: string }[]
   >([]);
@@ -72,6 +80,47 @@ export function App() {
       setOllamaLoading(false);
     }
   }
+
+  // Init
+  useEffect(() => {
+    document.documentElement.classList.toggle("light", theme === "light");
+    try {
+      localStorage.setItem("kairos:theme", theme);
+    } catch {}
+  }, [theme]);
+
+  // Drag & drop
+  useEffect(() => {
+    function onDragOver(e: DragEvent) {
+      if (e.dataTransfer?.types?.includes("Files")) {
+        e.preventDefault();
+        setDragOver(true);
+      }
+    }
+    function onDragLeave(e: DragEvent) {
+      if (e.relatedTarget === null) setDragOver(false);
+    }
+    function onDrop(e: DragEvent) {
+      e.preventDefault();
+      setDragOver(false);
+      const files = Array.from(e.dataTransfer?.files ?? []);
+      if (files.length === 0) return;
+      const items = files.map((f) => {
+        const p = window.kairosPath?.fromFile(f) ?? "";
+        return { name: f.name, size: f.size, path: p };
+      }).filter((f) => f.path);
+      if (items.length === 0) return;
+      setPendingAttachments((prev) => [...prev, ...items]);
+    }
+    window.addEventListener("dragover", onDragOver);
+    window.addEventListener("dragleave", onDragLeave);
+    window.addEventListener("drop", onDrop);
+    return () => {
+      window.removeEventListener("dragover", onDragOver);
+      window.removeEventListener("dragleave", onDragLeave);
+      window.removeEventListener("drop", onDrop);
+    };
+  }, []);
 
   // Init
   useEffect(() => {
@@ -243,6 +292,19 @@ export function App() {
     setPendingAttachments((prev) => [...prev, ...result.files]);
   }
 
+  async function handleAttachFromWorkspace(item: { name: string; size: number; path: string }) {
+    if (busy) return;
+    // Converte path relativo do workspace pra path absoluto
+    const { root } = await window.kairos!.workspace.root();
+    const absPath = `${root}/${item.path}`.replace(/\/+/g, "/").replace(/^\//, "");
+    // Normaliza separador pra SO nativo
+    const normalized = absPath.replace(/\//g, "\\");
+    setPendingAttachments((prev) => [
+      ...prev,
+      { name: item.name, size: item.size, path: normalized },
+    ]);
+  }
+
   function removePendingAttachment(idx: number) {
     setPendingAttachments((prev) => prev.filter((_, i) => i !== idx));
   }
@@ -290,6 +352,48 @@ export function App() {
     await window.kairos!.stop(sessionId);
   }
 
+  function buildMarkdownExport(): string {
+    const head = `# ${conversations.find((c) => c.id === sessionId)?.title ?? "Conversa"}\n\n_${new Date().toLocaleString("pt-BR")}_\n\n`;
+    const body = messages
+      .filter((m) => m.role !== "tool" && m.role !== "system")
+      .map((m) => {
+        const tag = m.role === "user" ? "**Você**" : "**Kairós**";
+        const atts = m.attachments?.length
+          ? `\n*[anexos: ${m.attachments.map((a) => a.name).join(", ")}]*`
+          : "";
+        return `${tag} (${new Date(m.ts).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}):\n\n${m.content}${atts}\n`;
+      })
+      .join("\n---\n\n");
+    return head + body;
+  }
+
+  async function handleExportConversation() {
+    const md = buildMarkdownExport();
+    const ts = new Date().toISOString().slice(0, 16).replace(/[T:]/g, "-");
+    const defaultName = `conversa-${ts}.md`;
+    // Salva direto no workspace (sem prompt — rápido)
+    try {
+      await window.kairos!.workspace.writeText(`/exports/${defaultName}`, md);
+      addSystemMessage(`📥 Conversa exportada para workspace:exports/${defaultName}`);
+    } catch (err) {
+      addSystemMessage(`Erro exportando: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  }
+
+  async function handleSaveAsNote(m: BubbleMessage) {
+    if (m.role === "tool" || m.role === "system") return;
+    const ts = new Date(m.ts).toISOString().slice(0, 16).replace(/[T:]/g, "-");
+    const safeName = (m.content.slice(0, 30).replace(/[\\/:*?"<>|]/g, "").trim() || "nota").slice(0, 30);
+    const fname = `${safeName}-${ts}.md`;
+    const md = `# ${safeName}\n\n_${new Date(m.ts).toLocaleString("pt-BR")}_\n\n${m.content}\n`;
+    try {
+      await window.kairos!.workspace.writeText(`/notes/${fname}`, md);
+      addSystemMessage(`💾 Nota salva em workspace:notes/${fname}`);
+    } catch (err) {
+      addSystemMessage(`Erro salvando nota: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  }
+
   async function handleProviderChange(next: ProviderConfig) {
     await window.kairos!.setProvider(next);
     setProviderState(next);
@@ -299,58 +403,102 @@ export function App() {
     <div className="flex h-screen bg-slate-900 text-slate-100 overflow-hidden">
       {/* Sidebar */}
       {sidebarOpen && (
-        <aside className="flex w-64 flex-col border-r border-slate-800 bg-slate-950">
+        <aside className="relative flex w-72 flex-col border-r border-slate-800 bg-slate-950">
           <div className="flex items-center gap-2 border-b border-slate-800 px-4 py-3">
             <div className="h-7 w-7 rounded-lg bg-gradient-to-br from-emerald-500 to-emerald-700 flex items-center justify-center text-white font-bold text-sm shadow-md">K</div>
             <h1 className="text-sm font-semibold">Kairós</h1>
           </div>
-          <div className="border-b border-slate-800 px-3 py-2">
+
+          {/* Tabs */}
+          <div className="flex border-b border-slate-800 bg-slate-900/40">
             <button
               type="button"
-              onClick={handleNewConversation}
-              className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-200 hover:bg-slate-700 transition-colors"
+              onClick={() => setSidebarTab("conversations")}
+              className={`flex-1 px-3 py-2 text-[11px] font-medium transition-colors ${
+                sidebarTab === "conversations"
+                  ? "border-b-2 border-emerald-500 text-emerald-300"
+                  : "border-b-2 border-transparent text-slate-400 hover:text-slate-200"
+              }`}
             >
-              + Nova conversa
+              💬 Conversas
+            </button>
+            <button
+              type="button"
+              onClick={() => setSidebarTab("workspace")}
+              className={`flex-1 px-3 py-2 text-[11px] font-medium transition-colors ${
+                sidebarTab === "workspace"
+                  ? "border-b-2 border-emerald-500 text-emerald-300"
+                  : "border-b-2 border-transparent text-slate-400 hover:text-slate-200"
+              }`}
+            >
+              📁 Workspace
             </button>
           </div>
-          <div className="flex-1 overflow-y-auto py-1">
-            {conversations.length === 0 ? (
-              <p className="p-4 text-xs text-slate-500 italic">Nenhuma conversa</p>
-            ) : (
-              conversations.map((c) => (
-                <div
-                  key={c.id}
-                  className={`group flex cursor-pointer items-center justify-between px-3 py-2 text-sm transition-colors ${
-                    c.id === sessionId
-                      ? "bg-slate-800/80 border-l-2 border-emerald-500"
-                      : "hover:bg-slate-900 border-l-2 border-transparent"
-                  }`}
-                  onClick={() => void handleSwitchConversation(c.id)}
+
+          {sidebarTab === "conversations" ? (
+            <>
+              <div className="border-b border-slate-800 px-3 py-2">
+                <button
+                  type="button"
+                  onClick={handleNewConversation}
+                  className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-200 hover:bg-slate-700 transition-colors"
                 >
-                  <div className="flex-1 truncate">
-                    <p className="truncate text-slate-200">{c.title ?? "Sem título"}</p>
-                    <p className="text-[10px] text-slate-500">
-                      {new Date(c.updatedAt).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })}
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      void handleDeleteConversation(c.id);
-                    }}
-                    className="opacity-0 group-hover:opacity-100 text-slate-500 hover:text-red-400 transition-opacity text-sm"
-                    aria-label="Excluir"
-                  >
-                    ✕
-                  </button>
-                </div>
-              ))
-            )}
-          </div>
-          <div className="border-t border-slate-800 px-3 py-2 text-[10px] text-slate-600">
-            <p>{toolCount} tools · v0.1.0</p>
-          </div>
+                  + Nova conversa
+                </button>
+              </div>
+              <div className="flex-1 overflow-y-auto py-1">
+                {conversations.length === 0 ? (
+                  <p className="p-4 text-xs text-slate-500 italic">Nenhuma conversa</p>
+                ) : (
+                  conversations.map((c) => (
+                    <div
+                      key={c.id}
+                      className={`group flex cursor-pointer items-center justify-between px-3 py-2 text-sm transition-colors ${
+                        c.id === sessionId
+                          ? "bg-slate-800/80 border-l-2 border-emerald-500"
+                          : "hover:bg-slate-900 border-l-2 border-transparent"
+                      }`}
+                      onClick={() => void handleSwitchConversation(c.id)}
+                    >
+                      <div className="flex-1 truncate">
+                        <p className="truncate text-slate-200">{c.title ?? "Sem título"}</p>
+                        <p className="text-[10px] text-slate-500">
+                          {new Date(c.updatedAt).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          void handleDeleteConversation(c.id);
+                        }}
+                        className="opacity-0 group-hover:opacity-100 text-slate-500 hover:text-red-400 transition-opacity text-sm"
+                        aria-label="Excluir"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  ))
+                )}
+              </div>
+              <div className="border-t border-slate-800 px-3 py-2 text-[10px] text-slate-600">
+                <p>{toolCount} tools · v0.1.0</p>
+              </div>
+            </>
+          ) : (
+            <WorkspacePanel
+              onOpenFile={(relPath, content, name) => {
+                const msg = `Lendo o arquivo "${name}" (workspace:${relPath}):\n\n\`\`\`\n${content}\n\`\`\``;
+                setDraft(msg);
+                setSidebarTab("conversations");
+                // foca o input — hack leve
+                setTimeout(() => {
+                  const ta = document.querySelector<HTMLTextAreaElement>("textarea");
+                  ta?.focus();
+                }, 50);
+              }}
+            />
+          )}
         </aside>
       )}
 
@@ -384,6 +532,25 @@ export function App() {
             )}
           </div>
           <div className="flex gap-1.5">
+            <button
+              type="button"
+              onClick={handleExportConversation}
+              disabled={messages.length === 0}
+              className="rounded-md p-2 text-slate-400 hover:bg-slate-800 hover:text-slate-100 disabled:opacity-40 transition-colors"
+              aria-label="Exportar conversa como .md"
+              title="Exportar conversa como .md"
+            >
+              📥
+            </button>
+            <button
+              type="button"
+              onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+              className="rounded-md p-2 text-slate-400 hover:bg-slate-800 hover:text-slate-100 transition-colors"
+              aria-label="Alternar tema"
+              title={theme === "dark" ? "Tema escuro (clique p/claro)" : "Tema claro (clique p/escuro)"}
+            >
+              {theme === "dark" ? "☀️" : "🌙"}
+            </button>
             <button
               type="button"
               onClick={() => setShowSettings(!showSettings)}
@@ -488,16 +655,25 @@ export function App() {
         )}
 
         {/* Conversation */}
-        <main className="flex-1 overflow-y-auto">
+        <main className="relative flex-1 overflow-y-auto">
           {messages.length === 0 ? (
             <EmptyState toolCount={toolCount} onPick={(p) => setDraft(p)} />
           ) : (
             <div className="mx-auto max-w-3xl px-4 py-6">
               {messages.map((m) => (
-                <MessageBubble key={m.id} msg={m} />
+                <MessageBubble key={m.id} msg={m} onSaveAsNote={handleSaveAsNote} />
               ))}
               {busy && messages[messages.length - 1]?.role !== "assistant" && <TypingIndicator />}
               <div ref={messagesEndRef} />
+            </div>
+          )}
+          {dragOver && (
+            <div className="pointer-events-none absolute inset-0 z-40 flex items-center justify-center bg-emerald-500/10 backdrop-blur-sm border-2 border-dashed border-emerald-500 m-4 rounded-2xl">
+              <div className="rounded-xl bg-slate-900 px-6 py-3 text-center shadow-2xl">
+                <p className="text-3xl">📎</p>
+                <p className="mt-1 text-sm font-semibold text-emerald-300">Solte os arquivos aqui</p>
+                <p className="text-[10px] text-slate-400">vão ser anexados ao chat</p>
+              </div>
             </div>
           )}
         </main>
@@ -533,8 +709,18 @@ export function App() {
           onSend={() => void handleSend()}
           onStop={() => void handleStop()}
           busy={busy}
+          onAttach={() => void handleAttach()}
+          onAttachWorkspace={() => setShowWorkspacePicker(true)}
         />
       </div>
+
+      {/* Workspace picker modal */}
+      {showWorkspacePicker && (
+        <WorkspacePicker
+          onAttach={(item) => void handleAttachFromWorkspace(item)}
+          onClose={() => setShowWorkspacePicker(false)}
+        />
+      )}
 
     </div>
   );
