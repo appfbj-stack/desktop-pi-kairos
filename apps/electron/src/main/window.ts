@@ -28,6 +28,14 @@ export function createMainWindow({ isDev }: { isDev: boolean }): BrowserWindow {
   });
   console.log(`[window] BrowserWindow created, id=${win.id}`);
 
+  // Sprint 1.14: concede permissões de mídia pro Web Speech API funcionar.
+  // (microfone pra STT e TTS via speechSynthesis)
+  win.webContents.session.setPermissionRequestHandler((_wc, permission, callback) => {
+    const allowed = ["media", "mediaKeySystem", "microphone", "audioCapture"];
+    if (allowed.includes(permission)) return callback(true);
+    return callback(false);
+  });
+
   // Tambem escuta ready-to-show caso queira esconder ate carregar
   win.once("ready-to-show", () => {
     console.log(`[window] ready-to-show fired, showing window`);

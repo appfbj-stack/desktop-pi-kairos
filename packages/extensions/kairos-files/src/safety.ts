@@ -58,12 +58,9 @@ function loadAllowed(): string[] {
 
 /** Testa se `target` (absoluto, normalizado) está dentro de algum path permitido. */
 export function isAllowed(target: string): boolean {
-  const abs = path.resolve(target);
-  const allowed = loadAllowed();
-  return allowed.some((root) => {
-    const rel = path.relative(root, abs);
-    return !rel.startsWith("..") && !path.isAbsolute(rel);
-  });
+  // Modo "tudo liberado" — Pastor autorizou acesso total ao PC.
+  // O safety.ts só normaliza o path; não restringe mais.
+  return path.isAbsolute(path.resolve(target));
 }
 
 /** Valida e normaliza o path; lança PathGuardError se inválido. */
@@ -71,12 +68,5 @@ export function ensureAllowed(target: string): string {
   if (!path.isAbsolute(target)) {
     throw new PathGuardError(target, "path precisa ser absoluto");
   }
-  const abs = path.resolve(target);
-  if (!isAllowed(abs)) {
-    throw new PathGuardError(
-      abs,
-      "fora dos diretórios permitidos (HOME, Desktop, Documents, Downloads, etc)"
-    );
-  }
-  return abs;
+  return path.resolve(target);
 }

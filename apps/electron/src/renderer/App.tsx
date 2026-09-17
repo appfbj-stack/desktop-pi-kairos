@@ -62,6 +62,9 @@ export function App() {
   const [theme, setTheme] = useState<"dark" | "light">(() => {
     return (typeof window !== "undefined" && (localStorage.getItem("kairos:theme") as "dark" | "light")) || "dark";
   });
+  const [ttsEnabled, setTtsEnabled] = useState<boolean>(() => {
+    return (typeof window !== "undefined" && localStorage.getItem("kairos:tts") === "1") || false;
+  });
   const [dragOver, setDragOver] = useState(false);
   const [ollamaModels, setOllamaModels] = useState<
     { id: string; name: string; size: number; modified_at: string; family?: string; parameter_size?: string; quantization_level?: string }[]
@@ -88,6 +91,37 @@ export function App() {
       localStorage.setItem("kairos:theme", theme);
     } catch {}
   }, [theme]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem("kairos:tts", ttsEnabled ? "1" : "0");
+    } catch {}
+  }, [ttsEnabled]);
+
+  // Auto-fala a última resposta do assistente quando termina (evento "done")
+  const lastSpokenIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!ttsEnabled) return;
+    const last = messages[messages.length - 1];
+    if (!last || last.role !== "assistant") return;
+    if (last.toolCall) return;
+    if (lastSpokenIdRef.current === last.id) return;
+    // Fala só quando busy=false (já terminou) e conteúdo > 0
+    if (busy) return;
+    const text = last.content?.trim();
+    if (!text) return;
+    lastSpokenIdRef.current = last.id;
+    try {
+      const u = (window as any).speechSynthesis;
+      if (!u) return;
+      u.cancel();
+      const utter = new SpeechSynthesisUtterance(text);
+      utter.lang = "pt-BR";
+      utter.rate = 1.05;
+      utter.pitch = 1.0;
+      u.speak(utter);
+    } catch {}
+  }, [messages, busy, ttsEnabled]);
 
   // Drag & drop
   useEffect(() => {
@@ -544,6 +578,17 @@ export function App() {
             </button>
             <button
               type="button"
+              onClick={() => setTtsEnabled(!ttsEnabled)}
+              className={`rounded-md p-2 transition-colors ${
+                ttsEnabled ? "bg-emerald-700/40 text-emerald-300" : "text-slate-400 hover:bg-slate-800 hover:text-slate-100"
+              }`}
+              aria-label="Alternar voz (TTS)"
+              title={ttsEnabled ? "Voz ligada (clique p/desligar)" : "Voz desligada (clique p/ligar)"}
+            >
+              {ttsEnabled ? "🔊" : "🔈"}
+            </button>
+            <button
+              type="button"
               onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
               className="rounded-md p-2 text-slate-400 hover:bg-slate-800 hover:text-slate-100 transition-colors"
               aria-label="Alternar tema"
@@ -711,6 +756,13 @@ export function App() {
           busy={busy}
           onAttach={() => void handleAttach()}
           onAttachWorkspace={() => setShowWorkspacePicker(true)}
+          voiceProps={{
+            onTranscript: (text) => setDraft(text),
+            onAutoSend: (text) => {
+              setDraft(text);
+              setTimeout(() => void handleSend(), 50);
+            },
+          }}
         />
       </div>
 

@@ -29,6 +29,7 @@ import kairosPdfCreate from "@kairos/extension-pdf-create";
 import kairosDocuments from "@kairos/extension-documents";
 import kairosImages from "@kairos/extension-images";
 import kairosIntelligence from "@kairos/extension-intelligence";
+import kairosAgenda from "@kairos/extension-agenda";
 import { openDatabase, ConversationStore, logger, type KairósDB } from "@kairos/core";
 
 interface AgentEntry {
@@ -90,6 +91,7 @@ export function getAgent(sessionId: string): Agent {
       "kairos-stream",
       "kairos-video",
       "kairos-intelligence",
+      "kairos-agenda",
     ],
     locale: "pt-BR",
   });
@@ -102,6 +104,7 @@ export function getAgent(sessionId: string): Agent {
   registerExtension(agent.tools, kairosStream);
   registerExtension(agent.tools, kairosVideo);
   registerExtension(agent.tools, kairosIntelligence);
+  registerExtension(agent.tools, kairosAgenda);
 
   // Modo "tudo liberado" — Pastor autorizou todas as acoes.
   // Auto-aprova qualquer tool destrutiva sem pedir confirmacao.
