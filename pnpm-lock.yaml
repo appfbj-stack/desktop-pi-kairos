@@ -53,6 +53,9 @@ importers:
       '@kairos/extension-intelligence':
         specifier: workspace:*
         version: link:../../packages/extensions/kairos-intelligence
+      '@kairos/extension-marketing':
+        specifier: workspace:*
+        version: link:../../packages/extensions/kairos-marketing
       '@kairos/extension-ocr':
         specifier: workspace:*
         version: link:../../packages/extensions/kairos-ocr
@@ -332,6 +335,25 @@ importers:
       '@types/better-sqlite3':
         specifier: ^7.6.12
         version: 7.6.13
+      '@types/node':
+        specifier: ^22.10.0
+        version: 22.20.1
+      typescript:
+        specifier: ^5.7.2
+        version: 5.9.3
+
+  packages/extensions/kairos-marketing:
+    dependencies:
+      '@kairos/agent':
+        specifier: workspace:*
+        version: link:../../agent
+      sharp:
+        specifier: ^0.34.5
+        version: 0.34.5
+      zod:
+        specifier: ^3.24.1
+        version: 3.25.76
+    devDependencies:
       '@types/node':
         specifier: ^22.10.0
         version: 22.20.1
