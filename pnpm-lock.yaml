@@ -50,6 +50,9 @@ importers:
       '@kairos/extension-intelligence':
         specifier: workspace:*
         version: link:../../packages/extensions/kairos-intelligence
+      '@kairos/extension-ocr':
+        specifier: workspace:*
+        version: link:../../packages/extensions/kairos-ocr
       '@kairos/extension-pdf-create':
         specifier: workspace:*
         version: link:../../packages/extensions/kairos-pdf-create
@@ -323,6 +326,22 @@ importers:
       '@types/better-sqlite3':
         specifier: ^7.6.12
         version: 7.6.13
+      '@types/node':
+        specifier: ^22.10.0
+        version: 22.20.1
+      typescript:
+        specifier: ^5.7.2
+        version: 5.9.3
+
+  packages/extensions/kairos-ocr:
+    dependencies:
+      '@kairos/agent':
+        specifier: workspace:*
+        version: link:../../agent
+      zod:
+        specifier: ^3.24.1
+        version: 3.25.76
+    devDependencies:
       '@types/node':
         specifier: ^22.10.0
         version: 22.20.1
