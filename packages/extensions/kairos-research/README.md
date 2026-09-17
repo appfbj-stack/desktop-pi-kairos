@@ -10,6 +10,7 @@ Busca web + extração de contatos pra prospecção de clientes.
 | `web:fetch` | Fetch de URL → texto limpo (HTML → texto) |
 | `web:extract-contacts` | Extrai emails, telefones e redes sociais |
 | `web:prospect` | Fluxo combinado: search + fetch + contacts |
+| `web:prospect-save` | prospect + salva em CSV no workspace/leads/ |
 
 ## Backend: DuckDuckGo
 

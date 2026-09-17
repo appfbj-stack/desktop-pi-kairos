@@ -21,6 +21,7 @@ import { webSearchTool } from "./tools/search.js";
 import { webFetchTool } from "./tools/fetch.js";
 import { extractContactsTool } from "./tools/extract.js";
 import { prospectTool } from "./tools/prospect.js";
+import { prospectSaveTool } from "./tools/prospect-save.js";
 
 const extension: Extension = {
   name: "kairos-research",
@@ -33,6 +34,7 @@ const extension: Extension = {
     webFetchTool,
     extractContactsTool,
     prospectTool,
+    prospectSaveTool,
   ] as unknown as Tool<z.ZodTypeAny>[],
 };
 
