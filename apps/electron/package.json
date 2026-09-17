@@ -86,6 +86,7 @@
     "@kairos/extension-intelligence": "workspace:*",
     "@kairos/extension-ocr": "workspace:*",
     "@kairos/extension-pdf-create": "workspace:*",
+    "@kairos/extension-research": "workspace:*",
     "@kairos/extension-spreadsheets": "workspace:*",
     "@kairos/extension-stream": "workspace:*",
     "@kairos/extension-video": "workspace:*",
