@@ -80,6 +80,7 @@
     "@kairos/agent": "workspace:*",
     "@kairos/core": "workspace:*",
     "@kairos/extension-documents": "workspace:*",
+    "@kairos/extension-finance": "workspace:*",
     "@kairos/extension-files": "workspace:*",
     "@kairos/extension-images": "workspace:*",
     "@kairos/extension-intelligence": "workspace:*",

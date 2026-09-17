@@ -44,6 +44,9 @@ importers:
       '@kairos/extension-files':
         specifier: workspace:*
         version: link:../../packages/extensions/kairos-files
+      '@kairos/extension-finance':
+        specifier: workspace:*
+        version: link:../../packages/extensions/kairos-finance
       '@kairos/extension-images':
         specifier: workspace:*
         version: link:../../packages/extensions/kairos-images
@@ -263,6 +266,28 @@ importers:
         specifier: ^3.24.1
         version: 3.25.76
     devDependencies:
+      '@types/node':
+        specifier: ^22.10.0
+        version: 22.20.1
+      typescript:
+        specifier: ^5.7.2
+        version: 5.9.3
+
+  packages/extensions/kairos-finance:
+    dependencies:
+      '@kairos/agent':
+        specifier: workspace:*
+        version: link:../../agent
+      better-sqlite3:
+        specifier: ^11.7.0
+        version: 11.10.0
+      zod:
+        specifier: ^3.24.1
+        version: 3.25.76
+    devDependencies:
+      '@types/better-sqlite3':
+        specifier: ^7.6.12
+        version: 7.6.13
       '@types/node':
         specifier: ^22.10.0
         version: 22.20.1
