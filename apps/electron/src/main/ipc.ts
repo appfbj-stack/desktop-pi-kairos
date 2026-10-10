@@ -23,6 +23,8 @@ import { listModels } from "./models-catalog.js";
 import { getUsageStatus, incrementUsage, resetUsage, type UsageStatus } from "./usage-store.js";
 import { maskApiKey } from "./builtin-provider.js";
 import { logger } from "@kairos/core";
+import { getOrCreateInstallation } from "./installation-store.js";
+import { checkUsage, getLicenseStatus, type LicenseStatus } from "./license-client.js";
 function getWindow(event: IpcMainInvokeEvent): BrowserWindow | null {
   return BrowserWindow.fromWebContents(event.sender);
 }
@@ -201,10 +203,18 @@ export function registerIpcHandlers(): void {
         throw new Error("Window não encontrada");
       }
 
-      // Trial gate (Sprint 1.20+) — bloqueia se o limite de mensagens grátis foi atingido
-      const usage = await getUsageStatus();
-      if (usage.blocked) {
-        throw new Error("TRIAL_EXPIRED");
+      // License gate (Sprint v0.3.0+) — consulta central-kairos ANTES de cada mensagem
+      // Server-side enforcement: o counter é no servidor, não local.
+      // Fallback: cache offline 24h ou usage local se servidor indisponível.
+      const installation = await getOrCreateInstallation();
+      const license = await checkUsage(installation.id);
+      if (license.blocked || !license.allowed) {
+        logger.warn({ installationId: installation.id, plan: license.plan, used: license.usageUsed, reason: license.reason }, "license bloqueou mensagem");
+        // Envia estado pro renderer pra mostrar tela de bloqueio
+        if (!win.isDestroyed()) {
+          win.webContents.send("license:blocked", license);
+        }
+        throw new Error(`TRIAL_EXPIRED: ${license.reason || `Limite do plano ${license.plan} atingido`}`);
       }
 
       // Monta mensagem com anexos
@@ -223,7 +233,7 @@ export function registerIpcHandlers(): void {
         fullMessage = parts.join("\n\n");
       }
 
-      logger.info({ sessionId, length: fullMessage.length, attachments: attachments?.length, usageRemaining: usage.remaining - 1 }, "Mensagem recebida");
+      logger.info({ sessionId, length: fullMessage.length, attachments: attachments?.length, plan: license.plan, remaining: license.remaining - 1 }, "Mensagem recebida");
 
       const channel = `agent:event:${sessionId}`;
       let hadError = false;
@@ -239,12 +249,15 @@ export function registerIpcHandlers(): void {
           hadError = true;
         }
       }
-      // Incrementa uso só se a mensagem foi processada sem erro
+      // Se sucesso, atualiza cache local como telemetria (servidor já foi incrementado no checkUsage)
       if (!hadError) {
         await incrementUsage();
+        // Refetch license status pra pegar o counter novo
+        const freshLicense = await getLicenseStatus(installation.id);
         // Notifica renderer pra atualizar banner
         if (!win.isDestroyed()) {
           win.webContents.send("usage:updated", await getUsageStatus());
+          win.webContents.send("license:updated", freshLicense);
         }
       }
       return { ok: true };
@@ -286,6 +299,21 @@ export function registerIpcHandlers(): void {
   ipcMain.handle("app:usage:get", async () => getUsageStatus());
   ipcMain.handle("app:usage:increment", async () => incrementUsage());
   ipcMain.handle("app:usage:reset", async () => resetUsage());
+
+  // License server-side (Sprint v0.3.0+)
+  // Installation + license status + manual refresh
+  ipcMain.handle("app:installation:info", async () => {
+    const installation = await getOrCreateInstallation();
+    return installation;
+  });
+  ipcMain.handle("app:license:status", async (): Promise<LicenseStatus> => {
+    const installation = await getOrCreateInstallation();
+    return getLicenseStatus(installation.id);
+  });
+  ipcMain.handle("app:license:refresh", async (): Promise<LicenseStatus> => {
+    const installation = await getOrCreateInstallation();
+    return getLicenseStatus(installation.id);
+  });
 
   // Máscara da chave (Settings exibe)
   ipcMain.handle("app:api-key:masked", async () => {

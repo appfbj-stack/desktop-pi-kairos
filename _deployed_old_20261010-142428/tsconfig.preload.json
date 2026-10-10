@@ -1,0 +1,16 @@
+{
+  "_comment": "Sprint 1.7 — preload compilado como CJS pra Electron conseguir require(). O package.json da raiz tem type:module, entao o tsconfig do main usa ESM. O preload precisa de CJS. Solucao: compilar separado + sub-package.json com type:commonjs em dist/preload/.",
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "outDir": "./dist",
+    "rootDir": "./src",
+    "types": ["node"],
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "verbatimModuleSyntax": false,
+    "declaration": false,
+    "declarationMap": false,
+    "sourceMap": true
+  },
+  "include": ["src/preload/**/*"]
+}

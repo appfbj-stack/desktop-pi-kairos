@@ -8,6 +8,20 @@
 import { contextBridge, ipcRenderer, webUtils } from "electron";
 import type { AgentEvent, ProviderConfig } from "@kairos/agent";
 
+export interface LicenseStatus {
+  allowed: boolean;
+  blocked: boolean;
+  plan: "FREE" | "BASIC" | "PRO" | "ULTRA" | "ENTERPRISE" | "UNKNOWN";
+  usageLimit: number;
+  usageUsed: number;
+  remaining: number;
+  reason: string | null;
+  currentPeriodEnd: string | null;
+  renewUrl: string;
+  source: "server" | "cache" | "local-fallback";
+  cachedAt?: number;
+}
+
 export interface AttachmentSummary {
   name: string;
   size: number;
@@ -170,6 +184,24 @@ const api = {
       const h = (_e: unknown, s: { used: number; limit: number; remaining: number; blocked: boolean; firstUseAt: number }) => cb(s);
       ipcRenderer.on("usage:updated", h);
       return () => ipcRenderer.off("usage:updated", h);
+    },
+  },
+
+  // License server-side (Sprint v0.3.0+)
+  license: {
+    installation: (): Promise<{ id: string; createdAt: number; productName: string }> =>
+      ipcRenderer.invoke("app:installation:info"),
+    status: (): Promise<LicenseStatus> => ipcRenderer.invoke("app:license:status"),
+    refresh: (): Promise<LicenseStatus> => ipcRenderer.invoke("app:license:refresh"),
+    onUpdate: (cb: (status: LicenseStatus) => void): (() => void) => {
+      const h = (_e: unknown, s: LicenseStatus) => cb(s);
+      ipcRenderer.on("license:updated", h);
+      return () => ipcRenderer.off("license:updated", h);
+    },
+    onBlocked: (cb: (status: LicenseStatus) => void): (() => void) => {
+      const h = (_e: unknown, s: LicenseStatus) => cb(s);
+      ipcRenderer.on("license:blocked", h);
+      return () => ipcRenderer.off("license:blocked", h);
     },
   },
 

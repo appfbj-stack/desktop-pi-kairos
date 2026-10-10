@@ -1,0 +1,35 @@
+{
+  "name": "@kairos/agent",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Kairós Desktop Alves — núcleo do agente (modelado no Pi Agent, escrito do zero).",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@earendil-works/pi-ai": "*",
+    "@earendil-works/pi-coding-agent": "*",
+    "@kairos/core": "workspace:*",
+    "pi-condense": "*",
+    "pi-mcp-adapter": "*",
+    "pi-nolo": "*",
+    "pi-web-access": "*",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
+  }
+}

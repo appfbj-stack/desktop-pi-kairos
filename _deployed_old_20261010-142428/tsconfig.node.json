@@ -1,0 +1,12 @@
+{
+  "_comment": "Sprint 1.7 — main compilado como ESM (usa import.meta.url). Preload foi movido pra tsconfig.preload.json (CJS).",
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "outDir": "./dist",
+    "rootDir": "./src",
+    "types": ["node"],
+    "module": "ESNext",
+    "moduleResolution": "Bundler"
+  },
+  "include": ["src/main/**/*"]
+}
