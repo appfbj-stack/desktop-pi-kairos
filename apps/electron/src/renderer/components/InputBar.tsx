@@ -1,18 +1,29 @@
 /**
- * Input do chat — estilo ChatGPT.
+ * Input do chat — estilo ChatGPT polido.
  *
- * Caracteristicas:
- *   - Container unico arredondado (pill) com bg sutil, integra com o fundo
- *   - Botao de anexar (📎) colapsado a esquerda dentro do container
- *   - Textarea auto-grow no meio
- *   - Botao de voz (🎤) e enviar (➤) a direita dentro do container
- *   - Sem hint visivel por padrao (estilo ChatGPT)
- *   - Focus ring discreto emerald quando focado
- *   - Borda suave ate focado
+ * v0.4+: melhorias de UX
+ *   - Placeholder PT-BR convidativo e dinâmico (gira a cada 6s com dicas rápidas)
+ *   - Atalho Cmd/Ctrl+K foca o input de qualquer lugar
+ *   - Atalho Esc limpa o input se focado
+ *   - Contador discreto aparece quando > 200 chars
+ *   - Footer hint com tokens restantes (se usage disponível) + atalhos keyboard
+ *   - Glow verde sutil quando focado (focus-within)
+ *   - Border radius mais exagerado (rounded-3xl)
+ *
+ * Sprint 1.x original: container arredondado unico, anexar a esquerda,
+ * textarea meio, voz/enviar a direita.
  */
 
 import { useEffect, useRef } from "react";
 import { VoiceButton } from "./VoiceButton";
+
+const ROTATING_HINTS = [
+  "Pergunte, peça, planeje, crie…",
+  "Me peça pra ler um arquivo e resumir",
+  "Converse em linguagem natural",
+  "Anexe PDF, planilha ou print e me diga o que fazer",
+  "Posso automatizar planilhas, gerar PDF, criar scripts…",
+];
 
 export function InputBar({
   value,
@@ -24,6 +35,7 @@ export function InputBar({
   onAttach,
   onAttachWorkspace,
   voiceProps,
+  usage,
 }: {
   value: string;
   onChange: (v: string) => void;
@@ -37,8 +49,10 @@ export function InputBar({
     onTranscript: (text: string, isFinal: boolean) => void;
     onAutoSend: (text: string) => void;
   };
+  usage?: { used: number; limit: number; remaining: number } | null;
 }) {
   const ref = useRef<HTMLTextAreaElement>(null);
+  const hintIdxRef = useRef(0);
 
   // Auto-resize (1 a 6 linhas)
   useEffect(() => {
@@ -51,6 +65,33 @@ export function InputBar({
     }
   }, [value]);
 
+  // Rotation do placeholder
+  useEffect(() => {
+    if (value) return; // para de girar quando tem texto
+    const interval = setInterval(() => {
+      hintIdxRef.current = (hintIdxRef.current + 1) % ROTATING_HINTS.length;
+    }, 6000);
+    return () => clearInterval(interval);
+  }, [value]);
+
+  // Global Cmd/Ctrl+K to focus
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      const k = e.key.toLowerCase();
+      // Cmd+K (mac) ou Ctrl+K (win/linux)
+      if ((e.metaKey || e.ctrlKey) && k === "k") {
+        e.preventDefault();
+        ref.current?.focus();
+      }
+      // Esc quando focado → limpa
+      if (k === "escape" && document.activeElement === ref.current) {
+        onChange("");
+      }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onChange]);
+
   function handleKey(e: React.KeyboardEvent<HTMLTextAreaElement>) {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
@@ -59,14 +100,18 @@ export function InputBar({
   }
 
   const canSend = value.trim().length > 0 && !disabled;
+  const charCount = value.length;
+  const showCount = charCount > 200;
 
   return (
     <div className="px-4 pb-4 pt-2 bg-gradient-to-t from-slate-900 via-slate-900 to-transparent">
       <div
-        className={`mx-auto flex max-w-3xl items-end gap-2 rounded-3xl border bg-slate-800/80 px-3 py-2 shadow-lg backdrop-blur transition-colors ${
+        className={`mx-auto flex max-w-3xl items-end gap-2 rounded-3xl border bg-slate-800/80 px-3 py-2 shadow-lg backdrop-blur transition-all duration-150 ${
           disabled
             ? "border-slate-700/50 opacity-50"
-            : "border-slate-700 focus-within:border-slate-500"
+            : busy
+              ? "border-slate-700"
+              : "border-slate-700 shadow-emerald-900/0 focus-within:border-emerald-500/60 focus-within:shadow-emerald-900/20 focus-within:shadow-xl"
         }`}
       >
         {/* Botoes de anexar a esquerda (compacto) */}
@@ -107,7 +152,7 @@ export function InputBar({
           value={value}
           onChange={(e) => onChange(e.target.value)}
           onKeyDown={handleKey}
-          placeholder="Pergunte alguma coisa ao Kairós"
+          placeholder={ROTATING_HINTS[hintIdxRef.current]}
           disabled={disabled || busy}
           rows={1}
           className="flex-1 resize-none bg-transparent px-2 py-2 text-[15px] leading-6 text-slate-100 placeholder-slate-400 focus:outline-none disabled:opacity-50 max-h-40 overflow-y-auto"
@@ -124,15 +169,20 @@ export function InputBar({
               className="h-9 w-9"
             />
           )}
+          {showCount && (
+            <span className="text-[10px] tabular-nums text-slate-500 pr-1">
+              {charCount.toLocaleString("pt-BR")}
+            </span>
+          )}
           {busy ? (
             <button
               type="button"
               onClick={onStop}
-              className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-700 text-white hover:bg-slate-600 transition-colors"
-              title="Parar geração"
+              className="flex h-9 w-9 items-center justify-center rounded-full bg-red-600 text-white hover:bg-red-500 transition-colors shadow-md"
+              title="Parar geração (Esc)"
               aria-label="Parar"
             >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
                 <rect x="6" y="6" width="12" height="12" rx="1.5" />
               </svg>
             </button>
@@ -141,22 +191,39 @@ export function InputBar({
               type="button"
               onClick={onSend}
               disabled={!canSend}
-              className="flex h-9 w-9 items-center justify-center rounded-full bg-white text-slate-900 transition-all hover:bg-slate-100 disabled:bg-slate-700 disabled:text-slate-500 disabled:cursor-not-allowed"
+              className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-emerald-500 to-emerald-600 text-white transition-all hover:from-emerald-400 hover:to-emerald-500 hover:shadow-md hover:shadow-emerald-900/40 disabled:from-slate-700 disabled:to-slate-700 disabled:text-slate-500 disabled:cursor-not-allowed disabled:shadow-none"
               title="Enviar (Enter)"
               aria-label="Enviar"
             >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="none">
-                <path d="M2.97 11.34a1 1 0 0 1 1.27-1.27l16.5 7a1 1 0 0 1 0 1.84l-16.5 7a1 1 0 0 1-1.27-1.27L4.66 13l1.74-1.66zM5 13l-1.35 5.07 11.7-4.95L5 13z" transform="translate(0.5 -1) rotate(45 12 12)" />
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 4l-1.41 1.41L16.17 11H4v2h12.17l-5.58 5.59L12 20l8-8z" />
               </svg>
             </button>
           )}
         </div>
       </div>
 
-      {/* Footer micro-hint (estilo ChatGPT) */}
-      <p className="mx-auto mt-2 max-w-3xl text-[11px] text-slate-500 text-center">
-        Kairós pode cometer erros. Confira informações importantes.
-      </p>
+      {/* Footer com tokens restantes + atalhos */}
+      <div className="mx-auto mt-2 flex max-w-3xl items-center justify-between text-[10px] text-slate-500">
+        <p>
+          <kbd className="rounded border border-slate-700 bg-slate-800 px-1.5 py-0.5 font-mono text-[9px] text-slate-400">
+            Ctrl+K
+          </kbd>{" "}
+          focar ·{" "}
+          <kbd className="rounded border border-slate-700 bg-slate-800 px-1.5 py-0.5 font-mono text-[9px] text-slate-400">
+            Esc
+          </kbd>{" "}
+          limpar
+        </p>
+        {usage && !disabled && (
+          <p>
+            ⏳ {usage.remaining} de {usage.limit} restantes
+          </p>
+        )}
+        {!usage && !disabled && (
+          <p>Kairós pode cometer erros. Confira informações importantes.</p>
+        )}
+      </div>
     </div>
   );
 }

@@ -99,11 +99,13 @@ export async function saveProviderConfig(next: ProviderConfig): Promise<void> {
     modelId: next.modelId,
     baseUrl: next.baseUrl,
   };
-  if (next.apiKey) {
+  // "bundled" é sentinel — significa "voltar a usar chave MiniMax do Pastor"
+  // Não persistimos como apiKey real (initProvider detecta ausência de key)
+  if (next.apiKey && next.apiKey !== "bundled") {
     toStore.apiKey = next.apiKey;
   }
   await writeConfigFile({ version: 1, provider: toStore });
-  logger.info({ provider: next.provider, model: next.modelId }, "provider config salva no disco");
+  logger.info({ provider: next.provider, model: next.modelId, hasKey: !!toStore.apiKey }, "provider config salva no disco");
 }
 
 /** Path absoluto do arquivo de config (útil pra Settings mostrar). */

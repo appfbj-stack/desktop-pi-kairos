@@ -3,6 +3,7 @@
  *
  * Sprint 1.9: visual profissional com markdown, hover actions, tool cards, empty state.
  * Sprint 1.4-1.8: provider mutavel, persistencia, permission modal, ollama, etc.
+ * v0.4+: Settings reformulado — toggle BYOK vs MiniMax bundled, sem expor campos confusos.
  */
 
 import { useEffect, useRef, useState } from "react";
@@ -18,6 +19,7 @@ import type { ToolCall } from "./components/ToolCallCard";
 import { WorkspacePanel } from "./components/WorkspacePanel";
 import { WorkspacePicker } from "./components/WorkspacePicker";
 import { Onboarding } from "./components/Onboarding";
+import { SettingsPanel } from "./components/SettingsPanel";
 
 interface Conversation {
   id: string;
@@ -968,107 +970,23 @@ export function App() {
           </div>
         )}
 
-        {/* Settings Panel */}
+        {/* Settings Panel — v0.4+: BYOK toggle, nada de campos confusos */}
         {showSettings && provider && (
-          <div className="border-b border-slate-800 bg-slate-950 px-6 py-4">
-            <h2 className="mb-3 text-sm font-semibold text-slate-200">Configurações do Provider</h2>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-              <div>
-                <label className="block text-[11px] text-slate-400 mb-1">Provider</label>
-                <select
-                  value={provider.provider}
-                  onChange={(e) =>
-                    handleProviderChange({ ...provider, provider: e.target.value as ProviderConfig["provider"] })
-                  }
-                  className="w-full rounded-md border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 focus:border-emerald-500 focus:outline-none"
-                >
-                  <option value="openrouter">openrouter</option>
-                  <option value="ollama">🦙 ollama (local)</option>
-                  <option value="openai">openai</option>
-                  <option value="anthropic">anthropic</option>
-                  <option value="minimax">minimax</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-[11px] text-slate-400 mb-1">Modelo</label>
-                <div className="flex gap-1">
-                  <input
-                    type="text"
-                    value={provider.modelId}
-                    onChange={(e) => handleProviderChange({ ...provider, modelId: e.target.value })}
-                    placeholder={provider.provider === "ollama" ? "ex: qwen2.5:3b" : "model ID"}
-                    className="flex-1 rounded-md border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 focus:border-emerald-500 focus:outline-none"
-                  />
-                  {provider.provider !== "ollama" && (
-                    <button
-                      type="button"
-                      onClick={handleListModels}
-                      title="Listar modelos disponíveis do provider"
-                      className="rounded-md border border-slate-700 bg-slate-800 px-2.5 text-xs hover:bg-slate-700"
-                    >
-                      📋
-                    </button>
-                  )}
-                  {provider.provider === "ollama" && (
-                    <button
-                      type="button"
-                      onClick={handleListOllama}
-                      disabled={ollamaLoading}
-                      title="Listar modelos locais do Ollama"
-                      className="rounded-md border border-slate-700 bg-slate-800 px-2.5 text-sm hover:bg-slate-700 disabled:opacity-50"
-                    >
-                      {ollamaLoading ? "..." : "🔄"}
-                    </button>
-                  )}
-                </div>
-              </div>
-              <div>
-                <label className="block text-[11px] text-slate-400 mb-1">API Key</label>
-                <input
-                  type="password"
-                  value={provider.apiKey ?? ""}
-                  onChange={(e) =>
-                    handleProviderChange({ ...provider, apiKey: e.target.value || undefined })
-                  }
-                  placeholder={provider.provider === "ollama" ? "opcional" : "sk-..."}
-                  disabled={provider.provider === "ollama"}
-                  className="w-full rounded-md border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 focus:border-emerald-500 focus:outline-none disabled:opacity-50"
-                />
-              </div>
-            </div>
-            {provider.provider === "ollama" && ollamaModels.length > 0 && (
-              <div className="mt-3">
-                <p className="text-[11px] text-slate-400 mb-1.5">Modelos instalados:</p>
-                <div className="flex flex-wrap gap-1.5">
-                  {ollamaModels.map((m) => (
-                    <button
-                      key={m.id}
-                      type="button"
-                      onClick={() => handleProviderChange({ ...provider, modelId: m.id })}
-                      className={`rounded-md border px-2.5 py-1 text-xs transition-colors ${
-                        provider.modelId === m.id
-                          ? "border-emerald-500 bg-emerald-900/30 text-emerald-300"
-                          : "border-slate-700 bg-slate-800 text-slate-300 hover:bg-slate-700"
-                      }`}
-                      title={`${m.parameter_size ?? ""} ${m.quantization_level ?? ""} • ${(m.size / 1e9).toFixed(1)} GB`}
-                    >
-                      {m.id}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-            {provider.provider === "ollama" && ollamaModels.length === 0 && !ollamaLoading && (
-              <p className="mt-3 text-[11px] text-slate-500">
-                Ollama não está rodando ou não tem modelos. Inicie com{" "}
-                <code className="rounded bg-slate-800 px-1.5 py-0.5 text-emerald-400">ollama serve</code>{" "}
-                e clique 🔄.
-              </p>
-            )}
-            <p className="mt-3 text-[10px] text-slate-600">
-              💾 Configuração salva em <code className="text-slate-500">%APPDATA%\kairos-pi\config.json</code> — sobrevive a reinício e não precisa de env var.
-            </p>
-          </div>
+          <SettingsPanel
+            provider={provider}
+            onProviderChange={async (next) => {
+              await handleProviderChange(next);
+            }}
+            onClose={() => setShowSettings(false)}
+            onListModels={handleListModels}
+            onListOllama={handleListOllama}
+            ollamaModels={ollamaModels}
+            ollamaLoading={ollamaLoading}
+            modelCatalog={modelCatalog}
+            modelCatalogLoading={modelCatalogLoading}
+            modelCatalogError={modelCatalogError}
+            onPickModel={handlePickModel}
+          />
         )}
 
         {/* Conversation */}
@@ -1126,6 +1044,7 @@ export function App() {
           onSend={() => void handleSend()}
           onStop={() => void handleStop()}
           busy={busy}
+          disabled={usage?.blocked}
           onAttach={() => void handleAttach()}
           onAttachWorkspace={() => setShowWorkspacePicker(true)}
           voiceProps={{
@@ -1135,6 +1054,7 @@ export function App() {
               setTimeout(() => void handleSend(), 50);
             },
           }}
+          usage={usage}
         />
       </div>
 

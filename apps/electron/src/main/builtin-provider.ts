@@ -1,65 +1,54 @@
 /**
  * Provider embarcado — chave MiniMax do Pastor embutida no app.
  *
- * Por que:
- * - Cliente instala, abre, já funciona (sem onboarding, sem chave)
- * - Pastor controla custo: usageStore limita 15 msgs grátis no trial
- * - Criptografa com Electron safeStorage (chave derivada do SO — só descriptografa no PC do usuário)
+ * v0.4+: Sem safeStorage. Texto plano direto.
+ * Por que: safeStorage usa DPAPI (chave por usuário/PC do Windows).
+ * Em outro PC, o blob criptografado de userData não descriptografa.
+ * Resultado: cliente instalou em outra máquina, app travou, "LLM não respondeu".
  *
- * Sprint 1.20+: substitui o fluxo de "escolher provider + colar chave" no primeiro launch.
- * Após trial, mostra tela "Renove" — Pastor vende licença via central-kairos.
+ * Trade-off honesto: a chave está no bundle (.asar). Quem descompactar
+ * o .asar acha ela. Isso é inevitável para um app white-label distribuído
+ * por link — Pastor controla custo via central-kairos (counter server-side).
  *
- * Trocar a chave: atualizar BUNDLED_API_KEY abaixo e rebuildar.
+ * Cliente que NÃO quer usar a chave bundled: Settings → "Usar minha chave"
+ * (BYOK) → escolhe OpenAI/Anthropic/OpenRouter/Gemini e cola a própria.
  */
 
-import { app, safeStorage } from "electron";
-import { promises as fs } from "node:fs";
-import path from "node:path";
 import { logger } from "@kairos/core";
 import type { ProviderConfig } from "@kairos/agent";
 
-/** Chave do Pastor. Para revogar, basta regenerar no painel MiniMax + rebuildar. */
+/** Chave do Pastor. Para revogar, regenerar no painel MiniMax + rebuildar. */
 const BUNDLED_API_KEY = "sk-cp-vrrgT5Bv-VpOfVV7G8ZVaG0FvBovzUOZVwEcxBBFr6cFqwNKJ48LvadhmPQj_mV39xZv9jQIlhLYbhZiMay9QMSJYdpLX5BACb0VYeYcuYfrRqbtJtcTpeY";
+const BUNDLED_PROVIDER = "minimax";
 const BUNDLED_MODEL = "MiniMax-M3";
 
-const STORAGE_FILE = "builtin-key.bin";
-
-function storagePath(): string {
-  return path.join(app.getPath("userData"), STORAGE_FILE);
+/** Retorna a chave bundled direto, sem criptografia. */
+export function getBundledApiKey(): string {
+  return BUNDLED_API_KEY;
 }
 
-/** Retorna a chave descriptografada. Na 1ª vez, criptografa e salva. */
-export async function getBundledApiKey(): Promise<string> {
-  if (!safeStorage.isEncryptionAvailable()) {
-    // Fallback: retorna texto plano (plataforma sem safeStorage)
-    logger.warn("safeStorage indisponível — usando chave em texto plano");
-    return BUNDLED_API_KEY;
-  }
-  try {
-    const buf = await fs.readFile(storagePath());
-    return safeStorage.decryptString(buf);
-  } catch {
-    // 1ª inicialização: criptografa e persiste
-    const encrypted = safeStorage.encryptString(BUNDLED_API_KEY);
-    await fs.writeFile(storagePath(), encrypted);
-    logger.info("chave MiniMax embarcada criptografada e salva em userData");
-    return BUNDLED_API_KEY;
-  }
-}
-
-/** Provider default que o app sempre usa. Cliente não troca. */
-export async function getBundledProviderConfig(): Promise<ProviderConfig> {
-  const apiKey = await getBundledApiKey();
+/** Provider default que o app sempre usa se cliente não configurar BYOK. */
+export function getBundledProviderConfig(): ProviderConfig {
   return {
-    provider: "minimax",
+    provider: BUNDLED_PROVIDER,
     modelId: BUNDLED_MODEL,
-    apiKey,
+    apiKey: BUNDLED_API_KEY,
   };
 }
 
-/** Máscara da chave pra exibir no Settings (mostra só últimos 4 chars). */
+/**
+ * Detecta se a config atual está usando a chave bundled do Pastor.
+ * Usado pelo Settings pra mostrar o banner "Modo bundled (MiniMax do Pastor)".
+ */
+export function isUsingBundledKey(provider: ProviderConfig): boolean {
+  return provider.provider === BUNDLED_PROVIDER && provider.apiKey === BUNDLED_API_KEY;
+}
+
+/** Máscara da chave pra exibir no Settings (últimos 4 chars). */
 export function maskApiKey(key: string | undefined): string {
-  if (!key) return "";
+  if (!key) return "vazio";
   if (key.length <= 8) return "•".repeat(key.length);
   return "•".repeat(key.length - 4) + key.slice(-4);
 }
+
+logger.info({ provider: BUNDLED_PROVIDER, model: BUNDLED_MODEL }, "builtin-provider pronto (chave bundled, sem criptografia)");

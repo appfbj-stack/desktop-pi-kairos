@@ -207,17 +207,15 @@ export function stopAgent(sessionId: string): void {
 export async function initProvider(): Promise<void> {
   if (providerInitialized) return;
 
-  // 1) Tenta built-in (chave MiniMax do Pastor, criptografada com safeStorage)
-  // 2) Se falhar, tenta env vars
-  // 3) Se falhar, tenta config.json do disco
-  let loaded: ProviderConfig;
-  try {
-    loaded = await getBundledProviderConfig();
-    logger.info({ source: "builtin", provider: loaded.provider, model: loaded.modelId }, "Provider built-in carregado");
-  } catch (err) {
-    logger.warn({ err: String(err) }, "builtin provider falhou, usando env vars / disco");
-    loaded = await loadProviderConfig();
-  }
+  // Ordem de prioridade:
+  //  1) config.json com provider + apiKey real (cliente BYOK OpenAI/Anthropic/etc)
+  //  2) config.json com provider=minimax mas sem apiKey (cliente clicou "voltar bundled") → bundled
+  //  3) Sem config.json ou inválido → bundled MiniMax
+  // v0.4+: safeStorage removido — bundled key funciona em qualquer PC
+  const stored = await loadProviderConfig();
+  const hasValidKey = !!stored.apiKey && stored.apiKey.length > 0 && stored.apiKey !== "bundled";
+
+  const loaded: ProviderConfig = hasValidKey ? stored : getBundledProviderConfig();
 
   provider = loaded;
   // Re-exporta env vars baseadas no que foi carregado
