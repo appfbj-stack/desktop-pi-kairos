@@ -13,8 +13,14 @@
  */
 
 import { app, BrowserWindow, ipcMain } from "electron";
-import { autoUpdater, type ProgressInfo, type UpdateInfo } from "electron-updater";
+// electron-updater é CJS, importar como default + destructure (named export quebra em ESM bundle)
+// Type-only imports do `electron-updater` são preservados pelo tsc e removidos do JS final,
+// então não causam erro de runtime.
+import electronUpdater from "electron-updater";
+import type { ProgressInfo, UpdateInfo } from "electron-updater";
 import { logger } from "@kairos/core";
+
+const { autoUpdater } = electronUpdater;
 
 let initialized = false;
 let checkInterval: NodeJS.Timeout | null = null;
