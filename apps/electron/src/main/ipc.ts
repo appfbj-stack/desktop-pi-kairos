@@ -13,12 +13,16 @@ import {
   stopAgent,
   setProvider,
   getProvider,
+  getProviderStatus,
   getDebugInfo,
   getStore,
 } from "./agent-instance.js";
+import { getConfigFilePath } from "./config-store.js";
 import { listOllamaModels, type AgentEvent, type ProviderConfig } from "@kairos/agent";
+import { listModels } from "./models-catalog.js";
+import { getUsageStatus, incrementUsage, resetUsage, type UsageStatus } from "./usage-store.js";
+import { maskApiKey } from "./builtin-provider.js";
 import { logger } from "@kairos/core";
-
 function getWindow(event: IpcMainInvokeEvent): BrowserWindow | null {
   return BrowserWindow.fromWebContents(event.sender);
 }
@@ -85,7 +89,12 @@ export async function readAttachment(absPath: string): Promise<{
 export function registerIpcHandlers(): void {
   // Health check
   ipcMain.handle("app:ping", async () => {
-    return { ok: true, app: "Kairós Desktop Alves", version: "0.1.0" };
+    return { ok: true, app: "Kairós Desktop Alves", version: app.getVersion() };
+  });
+
+  // Versão do app (usado pelo banner de update)
+  ipcMain.handle("app:version", async () => {
+    return { version: app.getVersion() };
   });
 
   // Debug info
@@ -192,6 +201,12 @@ export function registerIpcHandlers(): void {
         throw new Error("Window não encontrada");
       }
 
+      // Trial gate (Sprint 1.20+) — bloqueia se o limite de mensagens grátis foi atingido
+      const usage = await getUsageStatus();
+      if (usage.blocked) {
+        throw new Error("TRIAL_EXPIRED");
+      }
+
       // Monta mensagem com anexos
       let fullMessage = userMessage;
       if (attachments && attachments.length > 0) {
@@ -208,12 +223,28 @@ export function registerIpcHandlers(): void {
         fullMessage = parts.join("\n\n");
       }
 
-      logger.info({ sessionId, length: fullMessage.length, attachments: attachments?.length }, "Mensagem recebida");
+      logger.info({ sessionId, length: fullMessage.length, attachments: attachments?.length, usageRemaining: usage.remaining - 1 }, "Mensagem recebida");
 
       const channel = `agent:event:${sessionId}`;
+      let hadError = false;
       for await (const ev of handleUserMessage(sessionId, fullMessage)) {
         if (!win.isDestroyed()) {
           win.webContents.send(channel, ev);
+        }
+        // Erro (AgentEvent tem "error" e "done" com reason="error"|"aborted")
+        if (
+          ev.type === "error" ||
+          (ev.type === "done" && (ev.reason === "error" || ev.reason === "aborted"))
+        ) {
+          hadError = true;
+        }
+      }
+      // Incrementa uso só se a mensagem foi processada sem erro
+      if (!hadError) {
+        await incrementUsage();
+        // Notifica renderer pra atualizar banner
+        if (!win.isDestroyed()) {
+          win.webContents.send("usage:updated", await getUsageStatus());
         }
       }
       return { ok: true };
@@ -229,6 +260,9 @@ export function registerIpcHandlers(): void {
   // Provider config
   ipcMain.handle("agent:provider:get", async () => getProvider());
 
+  // Provider config + flag de onboarding (Sprint 1.20+)
+  ipcMain.handle("agent:provider:status", async () => getProviderStatus());
+
   ipcMain.handle(
     "agent:provider:set",
     async (_event, next: ProviderConfig) => {
@@ -238,16 +272,40 @@ export function registerIpcHandlers(): void {
       if (!next.provider || !next.modelId) {
         throw new Error("provider e modelId obrigatórios");
       }
-      setProvider(next);
+      await setProvider(next);
       return { ok: true, provider: getProvider() };
     }
   );
+
+  // Retorna o caminho do arquivo de config (para o Settings mostrar).
+  ipcMain.handle("app:config-path", async () => {
+    return { path: getConfigFilePath() };
+  });
+
+  // Usage / trial (Sprint 1.20+)
+  ipcMain.handle("app:usage:get", async () => getUsageStatus());
+  ipcMain.handle("app:usage:increment", async () => incrementUsage());
+  ipcMain.handle("app:usage:reset", async () => resetUsage());
+
+  // Máscara da chave (Settings exibe)
+  ipcMain.handle("app:api-key:masked", async () => {
+    return { masked: maskApiKey(getProvider().apiKey) };
+  });
 
   // Ollama local — lista modelos baixados (Sprint 1.7+).
   // Se Ollama nao estiver rodando, retorna [] (sem throw).
   ipcMain.handle("agent:ollama:list-models", async (_event, baseUrl?: string) => {
     return listOllamaModels(baseUrl);
   });
+
+  // Lista modelos disponíveis no provider (OpenRouter/Anthropic/OpenAI/MiniMax).
+  // Sprint 1.20: usado pelo modal "Ver modelos" no Settings.
+  ipcMain.handle(
+    "agent:list-models",
+    async (_event, provider: string, apiKey: string | undefined) => {
+      return listModels(provider, apiKey);
+    }
+  );
 
   // Lista tools
   ipcMain.handle("agent:list-tools", async (_event, sessionId: string) => {

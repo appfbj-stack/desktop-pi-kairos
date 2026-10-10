@@ -17,6 +17,7 @@ import { Markdown } from "./components/Markdown";
 import type { ToolCall } from "./components/ToolCallCard";
 import { WorkspacePanel } from "./components/WorkspacePanel";
 import { WorkspacePicker } from "./components/WorkspacePicker";
+import { Onboarding } from "./components/Onboarding";
 
 interface Conversation {
   id: string;
@@ -44,6 +45,59 @@ function formatSize(bytes: number): string {
   return `${(bytes / 1024 / 1024).toFixed(1)}MB`;
 }
 
+/**
+ * Sprint 1.17: SidebarPromptsPanel — card com prompts rápidos que injetam no input do chat.
+ *
+ * Usado nas tabs "Agenda" e "Finanças". Não chama tool diretamente — coloca o texto no draft
+ * e o usuário revisa/envia. Vantagem: zero IPC novo, modelo decide a tool certa na hora.
+ */
+function SidebarPromptsPanel({
+  title,
+  icon,
+  accent,
+  intro,
+  prompts,
+  onPick,
+}: {
+  title: string;
+  icon: string;
+  accent: "emerald" | "amber";
+  intro: string;
+  prompts: { icon: string; label: string; prompt: string }[];
+  onPick: (prompt: string) => void;
+}) {
+  const accentColor = accent === "emerald" ? "text-emerald-400" : "text-amber-400";
+  const accentBg = accent === "emerald" ? "hover:bg-emerald-900/20" : "hover:bg-amber-900/20";
+  const accentBorder = accent === "emerald" ? "border-emerald-500/30" : "border-amber-500/30";
+  return (
+    <>
+      <div className="border-b border-slate-800 px-4 py-3">
+        <div className="flex items-center gap-2">
+          <span className="text-lg">{icon}</span>
+          <h2 className={`text-sm font-semibold ${accentColor}`}>{title}</h2>
+        </div>
+        <p className="mt-1.5 text-[11px] leading-relaxed text-slate-500">{intro}</p>
+      </div>
+      <div className="flex-1 overflow-y-auto px-2 py-2">
+        {prompts.map((p, i) => (
+          <button
+            key={i}
+            type="button"
+            onClick={() => onPick(p.prompt)}
+            className={`mb-1 w-full rounded-lg border border-transparent ${accentBg} px-3 py-2 text-left text-sm text-slate-300 transition-colors hover:border-current hover:${accentBorder}`}
+          >
+            <span className="mr-2">{p.icon}</span>
+            <span className="text-slate-200">{p.label}</span>
+          </button>
+        ))}
+      </div>
+      <div className="border-t border-slate-800 px-3 py-2 text-[10px] text-slate-600">
+        <p>{prompts.length} ações rápidas · clique pra enviar ao chat</p>
+      </div>
+    </>
+  );
+}
+
 export function App() {
   const [sessionId, setSessionId] = useState<string>(SESSION_ID);
   const [conversations, setConversations] = useState<Conversation[]>([]);
@@ -57,7 +111,7 @@ export function App() {
   const [toolCount, setToolCount] = useState(0);
   const [showSettings, setShowSettings] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [sidebarTab, setSidebarTab] = useState<"conversations" | "workspace">("conversations");
+  const [sidebarTab, setSidebarTab] = useState<"conversations" | "workspace" | "agenda" | "finance">("conversations");
   const [showWorkspacePicker, setShowWorkspacePicker] = useState(false);
   const [theme, setTheme] = useState<"dark" | "light">(() => {
     return (typeof window !== "undefined" && (localStorage.getItem("kairos:theme") as "dark" | "light")) || "dark";
@@ -65,11 +119,42 @@ export function App() {
   const [ttsEnabled, setTtsEnabled] = useState<boolean>(() => {
     return (typeof window !== "undefined" && localStorage.getItem("kairos:tts") === "1") || false;
   });
+
+  // Auto-update (Sprint 1.20)
+  const [updateState, setUpdateState] = useState<
+    | { phase: "idle" }
+    | { phase: "available"; version: string }
+    | { phase: "downloading"; percent: number; transferred: number; total: number; bytesPerSecond: number }
+    | { phase: "downloaded"; version: string }
+    | { phase: "error"; message: string }
+  >({ phase: "idle" });
   const [dragOver, setDragOver] = useState(false);
   const [ollamaModels, setOllamaModels] = useState<
     { id: string; name: string; size: number; modified_at: string; family?: string; parameter_size?: string; quantization_level?: string }[]
   >([]);
   const [ollamaLoading, setOllamaLoading] = useState(false);
+
+  // Modelos do provider atual (OpenRouter/Anthropic/OpenAI/MiniMax) — Sprint 1.20
+  const [modelCatalog, setModelCatalog] = useState<
+    { id: string; name: string; context?: number; tier?: "free" | "paid"; description?: string }[]
+  >([]);
+  const [modelCatalogLoading, setModelCatalogLoading] = useState(false);
+  const [modelCatalogError, setModelCatalogError] = useState<string | null>(null);
+  const [modelSearch, setModelSearch] = useState("");
+  const [showModelModal, setShowModelModal] = useState(false);
+
+  // Onboarding desabilitado no v0.2.0 — chave MiniMax do Pastor vem embarcada.
+  // (Deixa o componente Onboarding.tsx no código caso queira reativar no futuro.)
+  const [needsOnboarding, setNeedsOnboarding] = useState<boolean | null>(false);
+
+  // Usage / trial (Sprint 1.20+)
+  const [usage, setUsage] = useState<{
+    used: number;
+    limit: number;
+    remaining: number;
+    blocked: boolean;
+    firstUseAt: number;
+  } | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   async function handleListOllama() {
@@ -82,6 +167,31 @@ export function App() {
     } finally {
       setOllamaLoading(false);
     }
+  }
+
+  async function handleListModels() {
+    if (!provider) return;
+    setModelCatalogLoading(true);
+    setModelCatalogError(null);
+    setModelSearch("");
+    setShowModelModal(true);
+    try {
+      const result = await window.kairos.listModels(provider.provider, provider.apiKey);
+      setModelCatalog(result.models);
+      if (result.error) {
+        setModelCatalogError(result.error);
+      }
+    } catch (err) {
+      setModelCatalogError(String(err));
+    } finally {
+      setModelCatalogLoading(false);
+    }
+  }
+
+  function handlePickModel(id: string) {
+    if (!provider) return;
+    handleProviderChange({ ...provider, modelId: id });
+    setShowModelModal(false);
   }
 
   // Init
@@ -159,7 +269,14 @@ export function App() {
   // Init
   useEffect(() => {
     void (async () => {
-      const p = await window.kairos!.getProvider();
+      // Sprint 1.20: checa se precisa onboarding (sem chave API configurada)
+      const status = await window.kairos!.getProviderStatus();
+      if (status.isFirstLaunch) {
+        setNeedsOnboarding(true);
+        return; // Espera o Onboarding terminar
+      }
+      setNeedsOnboarding(false);
+      const p = status.provider;
       setProviderState(p);
       const convs = await window.kairos!.conversations.list();
       setConversations(convs);
@@ -199,6 +316,47 @@ export function App() {
     });
     return () => off();
   }, [sessionId]);
+
+  // Usage / trial (Sprint 1.20+)
+  useEffect(() => {
+    const k = window.kairos;
+    if (!k) return;
+    void k.usage.get().then(setUsage);
+    const off = k.usage.onUpdate(setUsage);
+    return off;
+  }, []);
+
+  // Auto-update listeners (Sprint 1.20)
+  useEffect(() => {
+    const k = window.kairos;
+    if (!k) return;
+    const offAvail = k.update.onAvailable((info: { version: string; releaseDate?: string }) => {
+      setUpdateState({ phase: "available", version: info.version });
+    });
+    const offProg = k.update.onProgress((p: { percent: number; transferred: number; total: number; bytesPerSecond: number }) => {
+      setUpdateState({
+        phase: "downloading",
+        percent: p.percent,
+        transferred: p.transferred,
+        total: p.total,
+        bytesPerSecond: p.bytesPerSecond,
+      });
+    });
+    const offDown = k.update.onDownloaded((info: { version: string; releaseDate?: string }) => {
+      setUpdateState({ phase: "downloaded", version: info.version });
+    });
+    const offStatus = k.update.onStatus((s: { phase: string; message?: string; current?: string; percent?: number }) => {
+      if (s.phase === "error" && s.message) {
+        setUpdateState({ phase: "error", message: s.message });
+      }
+    });
+    return () => {
+      offAvail();
+      offProg();
+      offDown();
+      offStatus();
+    };
+  }, []);
 
   // Auto-scroll
   useEffect(() => {
@@ -433,6 +591,36 @@ export function App() {
     setProviderState(next);
   }
 
+  // Chamado pelo Onboarding quando termina. Salva config, atualiza estado, força re-init.
+  async function handleOnboardingComplete(next: ProviderConfig) {
+    await handleProviderChange(next);
+    setNeedsOnboarding(false);
+    // Re-dispara init: pega conversas, inicia sessão
+    void (async () => {
+      const convs = await window.kairos!.conversations.list();
+      setConversations(convs);
+      let currentConv = convs[0];
+      if (!currentConv) {
+        currentConv = await window.kairos!.conversations.create("Nova conversa");
+        setConversations([currentConv]);
+      }
+      setSessionId(currentConv.id);
+      const session = await window.kairos!.start(currentConv.id);
+      setToolCount(session.toolCount);
+      addSystemMessage(
+        `Kairós pronto. ${session.toolCount} tools. Provider: ${next.provider} / ${next.modelId}.`
+      );
+    })();
+  }
+
+  // Onboarding: primeira tela se não tem chave
+  if (needsOnboarding === null) {
+    return <div className="flex h-screen items-center justify-center bg-slate-950 text-slate-500">Carregando…</div>;
+  }
+  if (needsOnboarding === true) {
+    return <Onboarding onComplete={handleOnboardingComplete} />;
+  }
+
   return (
     <div className="flex h-screen bg-slate-900 text-slate-100 overflow-hidden">
       {/* Sidebar */}
@@ -466,6 +654,28 @@ export function App() {
               }`}
             >
               📁 Workspace
+            </button>
+            <button
+              type="button"
+              onClick={() => setSidebarTab("agenda")}
+              className={`flex-1 px-3 py-2 text-[11px] font-medium transition-colors ${
+                sidebarTab === "agenda"
+                  ? "border-b-2 border-emerald-500 text-emerald-300"
+                  : "border-b-2 border-transparent text-slate-400 hover:text-slate-200"
+              }`}
+            >
+              📅 Agenda
+            </button>
+            <button
+              type="button"
+              onClick={() => setSidebarTab("finance")}
+              className={`flex-1 px-3 py-2 text-[11px] font-medium transition-colors ${
+                sidebarTab === "finance"
+                  ? "border-b-2 border-emerald-500 text-emerald-300"
+                  : "border-b-2 border-transparent text-slate-400 hover:text-slate-200"
+              }`}
+            >
+              💸 Finanç.
             </button>
           </div>
 
@@ -519,13 +729,57 @@ export function App() {
                 <p>{toolCount} tools · v0.1.0</p>
               </div>
             </>
-          ) : (
+          ) : sidebarTab === "workspace" ? (
             <WorkspacePanel
               onOpenFile={(relPath, content, name) => {
                 const msg = `Lendo o arquivo "${name}" (workspace:${relPath}):\n\n\`\`\`\n${content}\n\`\`\``;
                 setDraft(msg);
                 setSidebarTab("conversations");
                 // foca o input — hack leve
+                setTimeout(() => {
+                  const ta = document.querySelector<HTMLTextAreaElement>("textarea");
+                  ta?.focus();
+                }, 50);
+              }}
+            />
+          ) : sidebarTab === "agenda" ? (
+            <SidebarPromptsPanel
+              title="Agenda"
+              icon="📅"
+              accent="emerald"
+              intro="Compromissos com data/hora. Fale naturalmente — ele converte pra ISO."
+              prompts={[
+                { icon: "📋", label: "O que tenho pra hoje?", prompt: "O que tenho na agenda pra hoje?" },
+                { icon: "🔜", label: "Próximos 7 dias", prompt: "Liste meus próximos compromissos da semana" },
+                { icon: "✅", label: "Marcar concluído", prompt: "Marque como concluído o compromisso mais recente" },
+                { icon: "➕", label: "Adicionar", prompt: "Adicione um compromisso novo: " },
+                { icon: "📆", label: "Tudo pendente", prompt: "Liste todos os meus compromissos pendentes" },
+              ]}
+              onPick={(p) => {
+                setDraft(p);
+                setSidebarTab("conversations");
+                setTimeout(() => {
+                  const ta = document.querySelector<HTMLTextAreaElement>("textarea");
+                  ta?.focus();
+                }, 50);
+              }}
+            />
+          ) : (
+            <SidebarPromptsPanel
+              title="Finanças"
+              icon="💸"
+              accent="amber"
+              intro="Despesas, faturas e P&L. Persistente local em SQLite."
+              prompts={[
+                { icon: "📊", label: "Quanto gastei esse mês?", prompt: "Quanto gastei esse mês?" },
+                { icon: "🗂️", label: "Por categoria", prompt: "Mostre o total de despesas por categoria esse mês" },
+                { icon: "📈", label: "Lucro do mês", prompt: "Qual meu lucro esse mês?" },
+                { icon: "⏰", label: "Faturas vencidas", prompt: "Liste as faturas vencidas" },
+                { icon: "💰", label: "A receber", prompt: "Quanto tenho a receber?" },
+              ]}
+              onPick={(p) => {
+                setDraft(p);
+                setSidebarTab("conversations");
                 setTimeout(() => {
                   const ta = document.querySelector<HTMLTextAreaElement>("textarea");
                   ta?.focus();
@@ -609,6 +863,111 @@ export function App() {
           </div>
         </header>
 
+        {/* Update banner (Sprint 1.20) — aparece quando há update available/downloading/downloaded */}
+        {updateState.phase === "available" && (
+          <div className="border-b border-blue-800/40 bg-blue-950/40 px-4 py-2 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2 text-sm text-blue-200">
+              <span>🆕</span>
+              <span>
+                Versão <strong>v{updateState.version}</strong> disponível
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={async () => {
+                  await window.kairos!.update.download();
+                }}
+                className="rounded-md bg-blue-600 hover:bg-blue-500 px-3 py-1 text-xs font-semibold text-white"
+              >
+                Baixar agora
+              </button>
+              <button
+                type="button"
+                onClick={() => setUpdateState({ phase: "idle" })}
+                className="rounded-md px-2 py-1 text-xs text-blue-300 hover:bg-blue-900/30"
+                aria-label="Dispensar"
+              >
+                ✕
+              </button>
+            </div>
+          </div>
+        )}
+        {updateState.phase === "downloading" && (
+          <div className="border-b border-blue-800/40 bg-blue-950/40 px-4 py-2">
+            <div className="flex items-center justify-between text-xs text-blue-200 mb-1">
+              <span>⏬ Baixando atualização…</span>
+              <span>
+                {updateState.percent.toFixed(0)}% · {formatSize(updateState.transferred)} / {formatSize(updateState.total)}
+              </span>
+            </div>
+            <div className="h-1.5 w-full overflow-hidden rounded bg-blue-950">
+              <div
+                className="h-full bg-blue-400 transition-all"
+                style={{ width: `${Math.min(100, updateState.percent)}%` }}
+              />
+            </div>
+          </div>
+        )}
+        {updateState.phase === "downloaded" && (
+          <div className="border-b border-emerald-800/40 bg-emerald-950/40 px-4 py-2 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2 text-sm text-emerald-200">
+              <span>✅</span>
+              <span>
+                v{updateState.version} baixada — reinicie para aplicar
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={async () => {
+                  await window.kairos!.update.install();
+                }}
+                className="rounded-md bg-emerald-600 hover:bg-emerald-500 px-3 py-1 text-xs font-semibold text-white"
+              >
+                Reiniciar agora
+              </button>
+              <button
+                type="button"
+                onClick={() => setUpdateState({ phase: "idle" })}
+                className="rounded-md px-2 py-1 text-xs text-emerald-300 hover:bg-emerald-900/30"
+                aria-label="Depois"
+                title="Será instalado quando fechar o app"
+              >
+                Depois
+              </button>
+            </div>
+          </div>
+        )}
+        {updateState.phase === "error" && (
+          <div className="border-b border-amber-800/40 bg-amber-950/40 px-4 py-2 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2 text-xs text-amber-200">
+              <span>⚠️</span>
+              <span>Erro ao atualizar: {updateState.message}</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setUpdateState({ phase: "idle" })}
+              className="rounded-md px-2 py-1 text-xs text-amber-300 hover:bg-amber-900/30"
+            >
+              ✕
+            </button>
+          </div>
+        )}
+
+        {/* Trial banner (Sprint 1.20+) — mostra uso restante */}
+        {usage && !usage.blocked && usage.remaining <= 5 && (
+          <div className="border-b border-amber-800/40 bg-amber-950/40 px-4 py-1.5 text-center text-[11px] text-amber-200">
+            ⏳ Você tem <strong>{usage.remaining}</strong> mensagem{usage.remaining !== 1 ? "s" : ""} grátis restante{usage.remaining !== 1 ? "s" : ""}.
+            Após isso, renove sua licença.
+          </div>
+        )}
+        {usage && usage.blocked && (
+          <div className="border-b border-red-800/40 bg-red-950/40 px-4 py-2 text-center text-sm text-red-200">
+            🛑 Trial acabou. Entre em contato para renovar a licença.
+          </div>
+        )}
+
         {/* Settings Panel */}
         {showSettings && provider && (
           <div className="border-b border-slate-800 bg-slate-950 px-6 py-4">
@@ -640,6 +999,16 @@ export function App() {
                     placeholder={provider.provider === "ollama" ? "ex: qwen2.5:3b" : "model ID"}
                     className="flex-1 rounded-md border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 focus:border-emerald-500 focus:outline-none"
                   />
+                  {provider.provider !== "ollama" && (
+                    <button
+                      type="button"
+                      onClick={handleListModels}
+                      title="Listar modelos disponíveis do provider"
+                      className="rounded-md border border-slate-700 bg-slate-800 px-2.5 text-xs hover:bg-slate-700"
+                    >
+                      📋
+                    </button>
+                  )}
                   {provider.provider === "ollama" && (
                     <button
                       type="button"
@@ -696,6 +1065,9 @@ export function App() {
                 e clique 🔄.
               </p>
             )}
+            <p className="mt-3 text-[10px] text-slate-600">
+              💾 Configuração salva em <code className="text-slate-500">%APPDATA%\kairos-pi\config.json</code> — sobrevive a reinício e não precisa de env var.
+            </p>
           </div>
         )}
 
@@ -772,6 +1144,119 @@ export function App() {
           onAttach={(item) => void handleAttachFromWorkspace(item)}
           onClose={() => setShowWorkspacePicker(false)}
         />
+      )}
+
+      {/* Model catalog modal (Sprint 1.20) — escolhe modelo do provider */}
+      {showModelModal && provider && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+          <div className="flex max-h-[80vh] w-full max-w-2xl flex-col rounded-xl border border-slate-700 bg-slate-900 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-slate-800 px-4 py-3">
+              <div>
+                <h3 className="text-sm font-semibold text-slate-100">
+                  Modelos do {provider.provider}
+                </h3>
+                <p className="text-[10px] text-slate-500">
+                  {modelCatalogLoading
+                    ? "Buscando..."
+                    : `${modelCatalog.length} modelos • clique pra selecionar`}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowModelModal(false)}
+                className="rounded-md px-2 py-1 text-slate-400 hover:bg-slate-800"
+                aria-label="Fechar"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="border-b border-slate-800 px-4 py-2">
+              <input
+                type="text"
+                value={modelSearch}
+                onChange={(e) => setModelSearch(e.target.value)}
+                placeholder="🔍 Filtrar por nome (ex: llama, gpt, gemma, free...)"
+                className="w-full rounded-md border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 focus:border-emerald-500 focus:outline-none"
+                autoFocus
+              />
+            </div>
+            <div className="flex-1 overflow-y-auto p-3">
+              {modelCatalogLoading && (
+                <p className="py-8 text-center text-sm text-slate-500">Carregando modelos...</p>
+              )}
+              {modelCatalogError && !modelCatalogLoading && (
+                <div className="rounded-md border border-amber-700/40 bg-amber-950/40 p-3 text-xs text-amber-200">
+                  ⚠️ {modelCatalogError}
+                  {modelCatalog.length === 0 && (
+                    <p className="mt-1 text-amber-300/80">
+                      Dica: confira se a API Key está correta e se o provider está online.
+                    </p>
+                  )}
+                </div>
+              )}
+              {!modelCatalogLoading &&
+                (() => {
+                  const filtered = modelCatalog.filter(
+                    (m) =>
+                      m.id.toLowerCase().includes(modelSearch.toLowerCase()) ||
+                      m.name.toLowerCase().includes(modelSearch.toLowerCase())
+                  );
+                  if (filtered.length === 0 && modelCatalog.length > 0) {
+                    return (
+                      <p className="py-8 text-center text-sm text-slate-500">
+                        Nenhum modelo combina com "{modelSearch}"
+                      </p>
+                    );
+                  }
+                  return (
+                    <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
+                      {filtered.map((m) => {
+                        const selected = provider.modelId === m.id;
+                        return (
+                          <button
+                            key={m.id}
+                            type="button"
+                            onClick={() => handlePickModel(m.id)}
+                            className={`flex flex-col items-start rounded-lg border p-3 text-left transition-colors ${
+                              selected
+                                ? "border-emerald-500 bg-emerald-900/30"
+                                : "border-slate-700 bg-slate-800 hover:border-slate-500 hover:bg-slate-750"
+                            }`}
+                          >
+                            <div className="flex w-full items-center justify-between gap-2">
+                              <span className="truncate font-mono text-xs text-slate-200">
+                                {m.id}
+                              </span>
+                              {m.tier === "free" && (
+                                <span className="rounded-full bg-emerald-900/40 px-1.5 py-0.5 text-[9px] font-semibold text-emerald-300">
+                                  FREE
+                                </span>
+                              )}
+                            </div>
+                            {m.name !== m.id && (
+                              <p className="mt-1 line-clamp-2 text-[11px] text-slate-400">
+                                {m.name}
+                              </p>
+                            )}
+                            {m.context && (
+                              <p className="mt-1 text-[10px] text-slate-500">
+                                ctx {(m.context / 1000).toFixed(0)}k
+                              </p>
+                            )}
+                            {m.description && (
+                              <p className="mt-1 line-clamp-2 text-[10px] text-slate-500">
+                                {m.description}
+                              </p>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  );
+                })()}
+            </div>
+          </div>
+        </div>
       )}
 
     </div>

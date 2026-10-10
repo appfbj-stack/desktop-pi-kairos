@@ -1,6 +1,6 @@
 {
   "name": "@kairos/electron",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "description": "Kairós Desktop Alves — shell desktop Electron + React + Vite + Tailwind + Shadcn UI.",
   "main": "dist/main/index.js",
@@ -46,7 +46,8 @@
     "asarUnpack": [
       "**/better-sqlite3/**",
       "**/pino-pretty/**",
-      "**/pino/**"
+      "**/pino/**",
+      "**/dist/preload/package.json"
     ],
     "win": {
       "target": [
@@ -74,6 +75,13 @@
       "installerHeader": null,
       "uninstallDisplayName": "Kairós Desktop Alves",
       "deleteAppDataOnUninstall": false
+    },
+    "publish": {
+      "provider": "github",
+      "owner": "appfbj-stack",
+      "repo": "desktop-pi-kairos",
+      "releaseType": "release",
+      "channel": "latest"
     }
   },
   "dependencies": {
@@ -92,6 +100,7 @@
     "@kairos/extension-stream": "workspace:*",
     "@kairos/extension-video": "workspace:*",
     "@kairos/extension-agenda": "workspace:*",
+    "electron-updater": "^6.3.9",
     "highlight.js": "^11.12.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
@@ -109,7 +118,6 @@
     "cross-env": "^7.0.3",
     "electron": "^33.2.1",
     "electron-builder": "^25.1.8",
-    "electron-updater": "^6.3.9",
     "esbuild": "^0.28.2",
     "png-to-ico": "^3.0.2",
     "postcss": "^8.4.49",

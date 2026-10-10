@@ -21,6 +21,8 @@ import {
   registerExtension,
   type ProviderConfig,
 } from "@kairos/agent";
+import { loadProviderConfig, saveProviderConfig } from "./config-store.js";
+import { getBundledProviderConfig } from "./builtin-provider.js";
 import kairosStream from "@kairos/extension-stream";
 import kairosVideo from "@kairos/extension-video";
 import kairosFiles from "@kairos/extension-files";
@@ -45,6 +47,7 @@ interface AgentEntry {
 let entry: AgentEntry | null = null;
 let currentSessionId: string | null = null;
 let provider: ProviderConfig = readProviderConfigFromEnv();
+let providerInitialized = false;
 
 function workspaceDir(): string {
   return path.join(app.getPath("userData"), "kairos-workspace");
@@ -200,17 +203,63 @@ export function stopAgent(sessionId: string): void {
   a.stop();
 }
 
-/** Atualiza o provider em runtime. */
-export function setProvider(next: ProviderConfig): void {
+/** Carrega provider config (built-in MiniMax → env vars → override disco). Chamar no app.whenReady. */
+export async function initProvider(): Promise<void> {
+  if (providerInitialized) return;
+
+  // 1) Tenta built-in (chave MiniMax do Pastor, criptografada com safeStorage)
+  // 2) Se falhar, tenta env vars
+  // 3) Se falhar, tenta config.json do disco
+  let loaded: ProviderConfig;
+  try {
+    loaded = await getBundledProviderConfig();
+    logger.info({ source: "builtin", provider: loaded.provider, model: loaded.modelId }, "Provider built-in carregado");
+  } catch (err) {
+    logger.warn({ err: String(err) }, "builtin provider falhou, usando env vars / disco");
+    loaded = await loadProviderConfig();
+  }
+
+  provider = loaded;
+  // Re-exporta env vars baseadas no que foi carregado
+  if (loaded.apiKey) process.env.KAIROS_API_KEY = loaded.apiKey;
+  if (loaded.provider) process.env.KAIROS_PROVIDER = loaded.provider;
+  if (loaded.modelId) process.env.KAIROS_MODEL = loaded.modelId;
+  if (loaded.baseUrl) process.env.KAIROS_OLLAMA_URL = loaded.baseUrl;
+  providerInitialized = true;
+  logger.info({ provider: loaded.provider, model: loaded.modelId }, "Provider inicializado");
+}
+
+/** Atualiza o provider em runtime e persiste no disco. */
+export async function setProvider(next: ProviderConfig): Promise<void> {
   provider = next;
   // Invalida entry pra forçar recriação do Agent com novo model
   entry = null;
   currentSessionId = null;
-  logger.info({ provider }, "Provider atualizado");
+  // Atualiza env vars também (algumas extensions podem ler direto)
+  if (next.apiKey) process.env.KAIROS_API_KEY = next.apiKey;
+  if (next.provider) process.env.KAIROS_PROVIDER = next.provider;
+  if (next.modelId) process.env.KAIROS_MODEL = next.modelId;
+  if (next.baseUrl) process.env.KAIROS_OLLAMA_URL = next.baseUrl;
+  // Persiste no disco pra sobreviver a reinício
+  try {
+    await saveProviderConfig(next);
+  } catch (err) {
+    logger.warn({ err: String(err) }, "não foi possível persistir provider config");
+  }
+  logger.info({ provider: next.provider, model: next.modelId }, "Provider atualizado");
 }
 
 export function getProvider(): ProviderConfig {
   return provider;
+}
+
+/** Retorna config + flag de onboarding. Usado pelo renderer pra saber se mostra wizard. */
+export function getProviderStatus(): { provider: ProviderConfig; hasApiKey: boolean; isFirstLaunch: boolean } {
+  return {
+    provider,
+    hasApiKey: !!provider.apiKey && provider.apiKey.length > 0,
+    isFirstLaunch: !provider.apiKey || provider.apiKey.length === 0,
+  };
 }
 
 export function getDebugInfo() {

@@ -1,0 +1,17 @@
+file 'C:\Users\ferna\.minimax-agent\projects\kairos-pi\workspace\marketing\each-beleza-1.png'
+duration 3
+file 'C:\Users\ferna\.minimax-agent\projects\kairos-pi\workspace\marketing\each-beleza-2.png'
+duration 3
+file 'C:\Users\ferna\.minimax-agent\projects\kairos-pi\workspace\marketing\each-beleza-3.png'
+duration 3
+file 'C:\Users\ferna\.minimax-agent\projects\kairos-pi\workspace\marketing\each-beleza-4.png'
+duration 3
+file 'C:\Users\ferna\.minimax-agent\projects\kairos-pi\workspace\marketing\each-beleza-5.png'
+duration 3
+file 'C:\Users\ferna\.minimax-agent\projects\kairos-pi\workspace\marketing\each-beleza-6.png'
+duration 3
+file 'C:\Users\ferna\.minimax-agent\projects\kairos-pi\workspace\marketing\each-beleza-7.png'
+duration 3
+file 'C:\Users\ferna\.minimax-agent\projects\kairos-pi\workspace\marketing\each-beleza-8.png'
+duration 3
+file 'C:\Users\ferna\.minimax-agent\projects\kairos-pi\workspace\marketing\each-beleza-8.png'

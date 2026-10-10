@@ -77,6 +77,10 @@ const api = {
   getProvider: (): Promise<ProviderConfig> =>
     ipcRenderer.invoke("agent:provider:get"),
 
+  // Provider status (config + hasApiKey + isFirstLaunch) — Sprint 1.20
+  getProviderStatus: (): Promise<{ provider: ProviderConfig; hasApiKey: boolean; isFirstLaunch: boolean }> =>
+    ipcRenderer.invoke("agent:provider:status"),
+
   setProvider: (next: ProviderConfig): Promise<{ ok: true; provider: ProviderConfig }> =>
     ipcRenderer.invoke("agent:provider:set", next),
 
@@ -85,6 +89,16 @@ const api = {
   listOllamaModels: (baseUrl?: string): Promise<
     { id: string; name: string; size: number; modified_at: string; family?: string; parameter_size?: string; quantization_level?: string }[]
   > => ipcRenderer.invoke("agent:ollama:list-models", baseUrl),
+
+  // Lista modelos disponíveis no provider (OpenRouter/Anthropic/OpenAI/MiniMax).
+  // Sprint 1.20: usado pelo modal "Ver modelos" no Settings.
+  listModels: (
+    provider: string,
+    apiKey: string | undefined
+  ): Promise<{
+    models: { id: string; name: string; context?: number; tier?: "free" | "paid"; description?: string }[];
+    error?: string;
+  }> => ipcRenderer.invoke("agent:list-models", provider, apiKey),
 
   // Tools
   listTools: (
@@ -144,6 +158,65 @@ const api = {
       ipcRenderer.invoke("workspace:read-text", relPath),
     writeText: (relPath: string, content: string): Promise<{ ok: true; path: string; size: number }> =>
       ipcRenderer.invoke("workspace:write-text", relPath, content),
+  },
+
+  // Usage / trial (Sprint 1.20+)
+  usage: {
+    get: (): Promise<{ used: number; limit: number; remaining: number; blocked: boolean; firstUseAt: number }> =>
+      ipcRenderer.invoke("app:usage:get"),
+    reset: (): Promise<{ used: number; limit: number; remaining: number; blocked: boolean; firstUseAt: number }> =>
+      ipcRenderer.invoke("app:usage:reset"),
+    onUpdate: (cb: (status: { used: number; limit: number; remaining: number; blocked: boolean; firstUseAt: number }) => void): (() => void) => {
+      const h = (_e: unknown, s: { used: number; limit: number; remaining: number; blocked: boolean; firstUseAt: number }) => cb(s);
+      ipcRenderer.on("usage:updated", h);
+      return () => ipcRenderer.off("usage:updated", h);
+    },
+  },
+
+  // Máscara da chave API (Settings exibe)
+  getMaskedApiKey: (): Promise<{ masked: string }> =>
+    ipcRenderer.invoke("app:api-key:masked"),
+
+  // Auto-update (Sprint 1.20)
+  update: {
+    /** Dispara verificação manual. Retorna null se falhar. */
+    check: (): Promise<unknown> => ipcRenderer.invoke("update:check"),
+    /** Baixa a versão encontrada. */
+    download: (): Promise<{ ok: boolean; error?: string }> =>
+      ipcRenderer.invoke("update:download"),
+    /** Sai e instala. */
+    install: (): Promise<void> => ipcRenderer.invoke("update:install"),
+    /** Versão atual do app. */
+    getVersion: (): Promise<{ version: string }> =>
+      ipcRenderer.invoke("app:version"),
+    onAvailable: (
+      cb: (info: { version: string; releaseDate?: string }) => void
+    ): (() => void) => {
+      const h = (_e: unknown, i: { version: string; releaseDate?: string }) => cb(i);
+      ipcRenderer.on("update:available", h);
+      return () => ipcRenderer.off("update:available", h);
+    },
+    onDownloaded: (
+      cb: (info: { version: string; releaseDate?: string }) => void
+    ): (() => void) => {
+      const h = (_e: unknown, i: { version: string; releaseDate?: string }) => cb(i);
+      ipcRenderer.on("update:downloaded", h);
+      return () => ipcRenderer.off("update:downloaded", h);
+    },
+    onStatus: (
+      cb: (status: { phase: string; message?: string; current?: string; percent?: number }) => void
+    ): (() => void) => {
+      const h = (_e: unknown, s: { phase: string; message?: string; current?: string; percent?: number }) => cb(s);
+      ipcRenderer.on("update:status", h);
+      return () => ipcRenderer.off("update:status", h);
+    },
+    onProgress: (
+      cb: (p: { percent: number; transferred: number; total: number; bytesPerSecond: number }) => void
+    ): (() => void) => {
+      const h = (_e: unknown, p: { percent: number; transferred: number; total: number; bytesPerSecond: number }) => cb(p);
+      ipcRenderer.on("update:download-progress", h);
+      return () => ipcRenderer.off("update:download-progress", h);
+    },
   },
 };
 

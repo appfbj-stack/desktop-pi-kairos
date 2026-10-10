@@ -68,6 +68,11 @@ temp/
 # lixeira de deploys com falha e trash
 apps/electron/.trash/
 apps/electron/_deployed_tmp_*/
+packages/extensions/.trash_*/
+.deployed_old_*/
+.deployed_tmp_*/
+.trash_old_*/
+tests/
 
 # install/rebuild logs (gerados durante setup, não versionar)
 *.log

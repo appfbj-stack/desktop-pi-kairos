@@ -1,0 +1,13 @@
+file 'C:\Users\ferna\.minimax-agent\projects\kairos-pi\workspace\marketing\app-oficina.png'
+duration 3
+file 'C:\Users\ferna\.minimax-agent\projects\kairos-pi\workspace\marketing\app-igreja.png'
+duration 3
+file 'C:\Users\ferna\.minimax-agent\projects\kairos-pi\workspace\marketing\app-esquadrias.png'
+duration 3
+file 'C:\Users\ferna\.minimax-agent\projects\kairos-pi\workspace\marketing\app-crm.png'
+duration 3
+file 'C:\Users\ferna\.minimax-agent\projects\kairos-pi\workspace\marketing\app-almoxarifado.png'
+duration 3
+file 'C:\Users\ferna\.minimax-agent\projects\kairos-pi\workspace\marketing\app-beleza.png'
+duration 3
+file 'C:\Users\ferna\.minimax-agent\projects\kairos-pi\workspace\marketing\app-beleza.png'
