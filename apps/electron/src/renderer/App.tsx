@@ -111,6 +111,7 @@ export function App() {
   const [busy, setBusy] = useState(false);
   const [provider, setProviderState] = useState<ProviderConfig | null>(null);
   const [toolCount, setToolCount] = useState(0);
+  const [appVersion, setAppVersion] = useState<string>("…");
   const [showSettings, setShowSettings] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [sidebarTab, setSidebarTab] = useState<"conversations" | "workspace" | "agenda" | "finance">("conversations");
@@ -280,6 +281,11 @@ export function App() {
       setNeedsOnboarding(false);
       const p = status.provider;
       setProviderState(p);
+      // Pega versão real do app (do package.json no app.asar)
+      try {
+        const v = await window.kairos!.update.getVersion();
+        setAppVersion(v.version);
+      } catch {}
       const convs = await window.kairos!.conversations.list();
       setConversations(convs);
       let currentConv = convs[0];
@@ -728,7 +734,7 @@ export function App() {
                 )}
               </div>
               <div className="border-t border-slate-800 px-3 py-2 text-[10px] text-slate-600">
-                <p>{toolCount} tools · v0.1.0</p>
+                <p>{toolCount} tools · v{appVersion}</p>
               </div>
             </>
           ) : sidebarTab === "workspace" ? (
