@@ -58,8 +58,10 @@ async function copyDirPosix(srcDir, dstDir) {
 async function copyWorkspace({ name, src }) {
   const srcDist = path.join(REPO_ROOT, src, "dist");
   const srcPkg = path.join(REPO_ROOT, src, "package.json");
+  const srcConfig = path.join(REPO_ROOT, src, "config.json");
   const dstDist = path.join(VENDOR, name, "dist");
   const dstPkg = path.join(VENDOR, name, "package.json");
+  const dstConfig = path.join(VENDOR, name, "config.json");
 
   if (!existsSync(srcDist)) {
     console.warn(`⚠️  ${name}: dist/ não existe em ${src}/dist`);
@@ -68,6 +70,11 @@ async function copyWorkspace({ name, src }) {
 
   await copyDirPosix(srcDist, dstDist);
   await cp(srcPkg, dstPkg, { force: true });
+  // Algumas extensions (ex.: kairos-pi-bridge) têm config.json na raiz
+  // que é importado pelo dist/. Copia também pra evitar ERR_MODULE_NOT_FOUND.
+  if (existsSync(srcConfig)) {
+    await cp(srcConfig, dstConfig, { force: true });
+  }
   console.log(`✓ ${name} → _vendor/${name}/`);
 }
 
