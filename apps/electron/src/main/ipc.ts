@@ -141,7 +141,7 @@ export function registerIpcHandlers(): void {
     if (typeof sessionId !== "string" || !sessionId) {
       throw new Error("sessionId é obrigatório");
     }
-    const agent = getAgent(sessionId);
+    const agent = await getAgent(sessionId);
     return {
       sessionId,
       toolCount: agent.tools.list().length,
@@ -337,7 +337,7 @@ export function registerIpcHandlers(): void {
 
   // Lista tools
   ipcMain.handle("agent:list-tools", async (_event, sessionId: string) => {
-    const agent = getAgent(sessionId);
+    const agent = await getAgent(sessionId);
     return agent.tools.list().map((t) => ({
       name: t.name,
       description: t.description,

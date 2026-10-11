@@ -36,6 +36,7 @@ import kairosOcr from "@kairos/extension-ocr";
 import kairosFinance from "@kairos/extension-finance";
 import kairosResearch from "@kairos/extension-research";
 import kairosMarketing from "@kairos/extension-marketing";
+import kairosPiBridge, { getPiTools, applyPiTools } from "@kairos/extension-pi-bridge";
 import { openDatabase, ConversationStore, logger, type KairósDB } from "@kairos/core";
 
 interface AgentEntry {
@@ -70,7 +71,7 @@ function ensureStore(): { db: KairósDB; store: ConversationStore } {
 }
 
 /** Cria (ou retorna) o Agent. Idempotente. */
-export function getAgent(sessionId: string): Agent {
+export async function getAgent(sessionId: string): Promise<Agent> {
   if (entry && currentSessionId === sessionId) return entry.agent;
 
   exportWorkspaceEnv();
@@ -83,6 +84,17 @@ export function getAgent(sessionId: string): Agent {
   if (!store.getConversation(sessionId)) {
     store.createConversation(sessionId);
     logger.info({ sessionId }, "Conversa criada");
+  }
+
+  // Pi Bridge: carrega skills do cat\u00e1logo Pi (https://pi.dev/packages) sob demanda.
+  // Configura\u00e7\u00e3o em packages/extensions/kairos-pi-bridge/config.json.
+  // Falha ao carregar n\u00e3o derruba o Agent \u2014 log e segue.
+  try {
+    const piTools = await getPiTools();
+    await applyPiTools(piTools);
+    logger.info({ piToolCount: piTools.length }, "Pi Bridge tools carregadas");
+  } catch (err) {
+    logger.warn({ err: String(err) }, "Pi Bridge falhou ao carregar (continuando sem)");
   }
 
   const agent = new Agent(sessionId, {
@@ -103,6 +115,7 @@ export function getAgent(sessionId: string): Agent {
       "kairos-finance",
       "kairos-research",
       "kairos-marketing",
+      "kairos-pi-bridge",
     ],
     locale: "pt-BR",
   });
@@ -120,6 +133,8 @@ export function getAgent(sessionId: string): Agent {
   registerExtension(agent.tools, kairosFinance);
   registerExtension(agent.tools, kairosResearch);
   registerExtension(agent.tools, kairosMarketing);
+
+  registerExtension(agent.tools, kairosPiBridge);
 
   // Modo "tudo liberado" — Pastor autorizou todas as acoes.
   // Auto-aprova qualquer tool destrutiva sem pedir confirmacao.
@@ -150,7 +165,7 @@ export async function* handleUserMessage(
   userMessage: string,
   attachments: { name: string; size: number; type: "text" | "image"; mime: string }[] = []
 ): AsyncIterable<AgentEvent> {
-  const a = getAgent(sessionId);
+  const a = await getAgent(sessionId);
   const store = getStore();
 
   // Persiste mensagem do user
@@ -198,8 +213,8 @@ export async function* handleUserMessage(
 }
 
 /** Pede cancelamento. */
-export function stopAgent(sessionId: string): void {
-  const a = getAgent(sessionId);
+export async function stopAgent(sessionId: string): Promise<void> {
+  const a = await getAgent(sessionId);
   a.stop();
 }
 

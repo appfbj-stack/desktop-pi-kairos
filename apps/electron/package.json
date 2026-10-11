@@ -95,6 +95,7 @@
     "@kairos/extension-marketing": "workspace:*",
     "@kairos/extension-ocr": "workspace:*",
     "@kairos/extension-pdf-create": "workspace:*",
+    "@kairos/extension-pi-bridge": "workspace:*",
     "@kairos/extension-research": "workspace:*",
     "@kairos/extension-spreadsheets": "workspace:*",
     "@kairos/extension-stream": "workspace:*",

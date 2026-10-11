@@ -1,0 +1,9 @@
+{
+  "_comment": "Lista de Pi packages (de https://pi.dev/packages) habilitados no Kair\u00f3s. Adicione o nome do package e rode pnpm install + build.",
+  "enabled": [
+    "pi-web-access",
+    "pi-mcp-adapter",
+    "pi-condense",
+    "pi-nolo"
+  ]
+}
