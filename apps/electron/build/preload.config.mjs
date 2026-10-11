@@ -16,14 +16,14 @@ import { fileURLToPath } from "node:url";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const outDir = resolve(__dirname, "..", "dist", "preload");
-const outFile = join(outDir, "index.js");
+const outFile = join(outDir, "index.cjs");
 
 if (!existsSync(outDir)) {
   mkdirSync(outDir, { recursive: true });
 }
 
 await build({
-  entryPoints: [resolve(__dirname, "..", "src", "preload", "index.cts")],
+  entryPoints: [resolve(__dirname, "..", "src", "preload", "index.mts")],
   bundle: true,
   platform: "node",
   target: "node20",

@@ -20,7 +20,7 @@ export function createMainWindow({ isDev }: { isDev: boolean }): BrowserWindow {
     backgroundColor: "#0f172a", // slate-900 (paleta definida no briefing §8)
     show: true, // Sprint 1.9 fix: forca show=true pra nao depender de ready-to-show
     webPreferences: {
-      preload: path.join(__dirname, "../preload/index.js"),
+      preload: path.join(__dirname, "../preload/index.cjs"),
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: false,

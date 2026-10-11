@@ -31,6 +31,13 @@ const PACKAGES = [
   { name: "extension-images", src: "packages/extensions/kairos-images" },
   { name: "extension-stream", src: "packages/extensions/kairos-stream" },
   { name: "extension-video", src: "packages/extensions/kairos-video" },
+  { name: "extension-agenda", src: "packages/extensions/kairos-agenda" },
+  { name: "extension-finance", src: "packages/extensions/kairos-finance" },
+  { name: "extension-intelligence", src: "packages/extensions/kairos-intelligence" },
+  { name: "extension-marketing", src: "packages/extensions/kairos-marketing" },
+  { name: "extension-ocr", src: "packages/extensions/kairos-ocr" },
+  { name: "extension-pi-bridge", src: "packages/extensions/kairos-pi-bridge" },
+  { name: "extension-research", src: "packages/extensions/kairos-research" },
 ];
 
 /** Copia srcDir → dstDir preservando estrutura, mas usando paths POSIX nos metadados. */

@@ -1,6 +1,6 @@
 {
   "name": "@kairos/electron",
-  "version": "0.4.4",
+  "version": "0.4.6",
   "private": true,
   "description": "Kairós Desktop Alves — shell desktop Electron + React + Vite + Tailwind + Shadcn UI.",
   "main": "dist/main/index.js",
@@ -47,7 +47,7 @@
       "**/better-sqlite3/**",
       "**/pino-pretty/**",
       "**/pino/**",
-      "**/dist/preload/package.json"
+      "**/dist/preload/**"
     ],
     "win": {
       "target": [
