@@ -37,6 +37,7 @@ import kairosFinance from "@kairos/extension-finance";
 import kairosResearch from "@kairos/extension-research";
 import kairosMarketing from "@kairos/extension-marketing";
 import kairosPiBridge, { getPiTools, applyPiTools } from "@kairos/extension-pi-bridge";
+import kairosWebTools from "@kairos/extension-web-tools";
 import { openDatabase, ConversationStore, logger, type KairósDB } from "@kairos/core";
 
 interface AgentEntry {
@@ -116,6 +117,7 @@ export async function getAgent(sessionId: string): Promise<Agent> {
       "kairos-research",
       "kairos-marketing",
       "kairos-pi-bridge",
+      "kairos-web-tools",
     ],
     locale: "pt-BR",
   });
@@ -133,6 +135,7 @@ export async function getAgent(sessionId: string): Promise<Agent> {
   registerExtension(agent.tools, kairosFinance);
   registerExtension(agent.tools, kairosResearch);
   registerExtension(agent.tools, kairosMarketing);
+  registerExtension(agent.tools, kairosWebTools);
 
   registerExtension(agent.tools, kairosPiBridge);
 

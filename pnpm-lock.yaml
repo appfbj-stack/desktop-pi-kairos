@@ -77,6 +77,9 @@ importers:
       '@kairos/extension-video':
         specifier: workspace:*
         version: link:../../packages/extensions/kairos-video
+      '@kairos/extension-web-tools':
+        specifier: workspace:*
+        version: link:../../packages/extensions/kairos-web-tools
       electron-updater:
         specifier: ^6.3.9
         version: 6.8.9
@@ -505,6 +508,25 @@ importers:
       '@types/fluent-ffmpeg':
         specifier: ^2.1.27
         version: 2.1.28
+      '@types/node':
+        specifier: ^22.10.0
+        version: 22.20.1
+      typescript:
+        specifier: ^5.7.2
+        version: 5.9.3
+
+  packages/extensions/kairos-web-tools:
+    dependencies:
+      '@kairos/agent':
+        specifier: workspace:*
+        version: link:../../agent
+      '@kairos/core':
+        specifier: workspace:*
+        version: link:../../core
+      zod:
+        specifier: ^3.24.1
+        version: 3.25.76
+    devDependencies:
       '@types/node':
         specifier: ^22.10.0
         version: 22.20.1

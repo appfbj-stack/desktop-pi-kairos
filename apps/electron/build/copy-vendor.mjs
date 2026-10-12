@@ -31,6 +31,7 @@ const PACKAGES = [
   { name: "extension-images", src: "packages/extensions/kairos-images" },
   { name: "extension-stream", src: "packages/extensions/kairos-stream" },
   { name: "extension-video", src: "packages/extensions/kairos-video" },
+  { name: "extension-web-tools", src: "packages/extensions/kairos-web-tools" },
   { name: "extension-agenda", src: "packages/extensions/kairos-agenda" },
   { name: "extension-finance", src: "packages/extensions/kairos-finance" },
   { name: "extension-intelligence", src: "packages/extensions/kairos-intelligence" },

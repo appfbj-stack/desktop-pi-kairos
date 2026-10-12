@@ -1,6 +1,6 @@
 {
   "name": "@kairos/electron",
-  "version": "0.4.7",
+  "version": "0.5.0",
   "private": true,
   "description": "Kairós Desktop Alves — shell desktop Electron + React + Vite + Tailwind + Shadcn UI.",
   "main": "dist/main/index.js",
@@ -100,6 +100,7 @@
     "@kairos/extension-spreadsheets": "workspace:*",
     "@kairos/extension-stream": "workspace:*",
     "@kairos/extension-video": "workspace:*",
+    "@kairos/extension-web-tools": "workspace:*",
     "@kairos/extension-agenda": "workspace:*",
     "electron-updater": "^6.3.9",
     "highlight.js": "^11.12.0",
