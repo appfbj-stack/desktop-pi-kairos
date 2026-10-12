@@ -1,27 +1,33 @@
 #!/usr/bin/env node
 /**
- * release.mjs — Orquestrador de release.
+ * release.mjs -- Orquestrador de release.
  *
  * Fluxo:
- *   1. Valida env vars
- *   2. Lê versão do apps/electron/package.json
- *   3. Confirma que o instalador existe em apps/electron/release/
- *   4. Calcula SHA-256 antes do upload (comparação com o que o R2 recebeu)
- *   5. Chama publish-r2.mjs como sub-processo
- *   6. (Opcional) Gera resumo pra colar no GitHub Release
+ *   1. Sincroniza publish config (R2 ou GitHub) via env vars
+ *   2. Le versao do apps/electron/package.json
+ *   3. Valida env vars (R2_* se provider=generic)
+ *   4. Roda pnpm package:win (a menos que --skip-build)
+ *   5. Confirma que o instalador existe em apps/electron/release/
+ *   6. Calcula SHA-256 + salva em .sha256 (auditoria)
+ *   7. Chama scripts/publish-r2.mjs como sub-processo
  *
  * Uso:
- *   node scripts/release.mjs                    # lê versão do package.json
- *   node scripts/release.mjs --version 0.6.0   # override explícito
- *   node scripts/release.mjs --skip-build       # não rebuilda (usa release/ existente)
- *   node scripts/release.mjs --dry-run          # valida tudo, não faz upload
+ *   node scripts/release.mjs                    # le versao do package.json
+ *   node scripts/release.mjs --version 0.6.0   # override explicito
+ *   node scripts/release.mjs --skip-build       # nao rebuilda
+ *   node scripts/release.mjs --dry-run         # valida tudo, nao faz upload
+ *
+ * Env vars:
+ *   PUBLISH_PROVIDER=generic|github (default: github)
+ *   PUBLISH_URL=https://download.kairos.com.br/releases/latest/  (se generic)
+ *   CLOUDFLARE_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET_NAME
+ *   R2_PUBLIC_BASE_URL (URL publica pra mostrar no log final)
  */
 
 import { spawn } from "node:child_process";
 import { readFile, stat, writeFile } from "node:fs/promises";
-import { existsSync } from "node:fs";
+import { existsSync, createReadStream } from "node:fs";
 import { createHash } from "node:crypto";
-import { createReadStream } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 
@@ -44,13 +50,13 @@ function parseArgs(argv) {
     else if (k === "--dry-run") args.dryRun = true;
     else if (k === "--product") args.productName = argv[++i];
     else if (k === "--help" || k === "-h") {
-      console.log(`Uso: node scripts/release.mjs [opções]
-
-Opções:
-  --version <X.Y.Z>    Override da versão (default: apps/electron/package.json)
-  --skip-build         Não rebuilda; usa o instalador em apps/electron/release/ existente
-  --dry-run            Valida tudo, NÃO faz upload
-  --product <name>     Nome do produto (default: Kairos.Desktop.Alves)`);
+      console.log("Uso: node scripts/release.mjs [opcoes]");
+      console.log("");
+      console.log("Opcoes:");
+      console.log("  --version <X.Y.Z>    Override da versao (default: apps/electron/package.json)");
+      console.log("  --skip-build         Nao rebuilda; usa o instalador existente");
+      console.log("  --dry-run            Valida tudo, NAO faz upload");
+      console.log("  --product <name>     Nome do produto (default: Kairos.Desktop.Alves)");
       process.exit(0);
     }
   }
@@ -64,7 +70,6 @@ async function getVersion() {
 }
 
 async function findInstaller(productName) {
-  // electron-builder produz: release/<productName>-Setup-<version>.exe
   const version = await getVersion();
   const exeName = `${productName}-Setup-${version}.exe`;
   const path = join(ELECTRON_DIR, "release", exeName);
@@ -83,48 +88,51 @@ async function sha256File(path) {
   return hash.digest("hex");
 }
 
-async function runBuild() {
-  console.log("🔨 Building instalador (apps/electron)...");
-  // Roda `pnpm package:win` no apps/electron.
-  // Esse script faz: pnpm icons && pnpm vendor && pnpm build && pnpm deploy && pnpm package:win
+function runProcess(cmd, args, opts) {
   return new Promise((resolve, reject) => {
-    const child = spawn("pnpm", ["package:win"], {
-      cwd: ELECTRON_DIR,
-      stdio: "inherit",
-      env: { ...process.env, CI: "true" },
+    const child = spawn(cmd, args, {
+      ...opts,
       shell: process.platform === "win32",
     });
     child.on("exit", (code) => {
       if (code === 0) resolve();
-      else reject(new Error(`build falhou (exit ${code})`));
+      else reject(new Error(`${opts.label || cmd} falhou (exit ${code})`));
     });
     child.on("error", reject);
   });
 }
 
-function runPublish(version, exePath, dryRun) {
-  return new Promise((resolve, reject) => {
-    const args = [
-      "scripts/publish-r2.mjs",
-      "--file", exePath,
-      "--version", version,
-    ];
-    if (dryRun) {
-      // dry-run no publish: só valida env vars e calcula SHA
-      console.log("🧪 [DRY-RUN] Não vou fazer upload de verdade");
-      args.length = 0; // limpa args do publish
-    }
-    const child = spawn("node", args, {
-      cwd: REPO_ROOT,
-      stdio: "inherit",
-      env: process.env,
-      shell: process.platform === "win32",
-    });
-    child.on("exit", (code) => {
-      if (code === 0) resolve();
-      else reject(new Error(`publish falhou (exit ${code})`));
-    });
-    child.on("error", reject);
+async function runBuild() {
+  console.log("Building instalador (apps/electron)...");
+  await runProcess("pnpm", ["package:win"], {
+    cwd: ELECTRON_DIR,
+    stdio: "inherit",
+    env: { ...process.env, CI: "true" },
+    label: "build",
+  });
+}
+
+async function runSyncPublishConfig() {
+  console.log("Sincronizando publish config...");
+  await runProcess("node", ["scripts/sync-publish-config.mjs"], {
+    cwd: REPO_ROOT,
+    stdio: "inherit",
+    env: process.env,
+    label: "sync-publish-config",
+  });
+}
+
+async function runPublish(version, exePath) {
+  console.log("");
+  await runProcess("node", [
+    "scripts/publish-r2.mjs",
+    "--file", exePath,
+    "--version", version,
+  ], {
+    cwd: REPO_ROOT,
+    stdio: "inherit",
+    env: process.env,
+    label: "publish-r2",
   });
 }
 
@@ -132,20 +140,23 @@ function runPublish(version, exePath, dryRun) {
 async function main() {
   const args = parseArgs(process.argv);
 
-  // Versão
+  // Versao
   const version = args.version || (await getVersion());
   if (!/^\d+\.\d+\.\d+/.test(version)) {
-    console.error(`❌ Versão inválida: ${version}`);
+    console.error(`Versao invalida: ${version}`);
     process.exit(1);
   }
-  console.log(`📌 Versão: ${version}`);
+  console.log(`Versao: ${version}`);
 
-  // Env vars (se não for dry-run)
+  // Sincroniza publish config (R2 vs GitHub)
+  await runSyncPublishConfig();
+
+  // Valida env vars (so se nao for dry-run)
   if (!args.dryRun) {
     const required = ["CLOUDFLARE_ACCOUNT_ID", "R2_ACCESS_KEY_ID", "R2_SECRET_ACCESS_KEY", "R2_BUCKET_NAME"];
     const missing = required.filter((k) => !process.env[k]?.trim());
     if (missing.length) {
-      console.error(`❌ Env vars faltando: ${missing.join(", ")}`);
+      console.error(`Env vars faltando: ${missing.join(", ")}`);
       console.error(`   Carregue scripts/.env antes (source scripts/.env ou export VAR=valor)`);
       process.exit(1);
     }
@@ -155,13 +166,13 @@ async function main() {
   if (!args.skipBuild) {
     await runBuild();
   } else {
-    console.log("⏭️  Skipping build (--skip-build)");
+    console.log("Skipping build (--skip-build)");
   }
 
   // Localiza o instalador
   const installer = await findInstaller(args.productName);
   if (!installer) {
-    console.error(`❌ Instalador não encontrado: apps/electron/release/${args.productName}-Setup-${version}.exe`);
+    console.error(`Instalador nao encontrado: apps/electron/release/${args.productName}-Setup-${version}.exe`);
     if (args.skipBuild) {
       console.error(`   Rode sem --skip-build pra gerar, ou use --version correto`);
     }
@@ -169,10 +180,10 @@ async function main() {
   }
   const statInfo = await stat(installer.path);
   const sha = await sha256File(installer.path);
-  console.log(`📦 Instalador: ${installer.name} (${(statInfo.size / 1024 / 1024).toFixed(2)} MB)`);
+  console.log(`Instalador: ${installer.name} (${(statInfo.size / 1024 / 1024).toFixed(2)} MB)`);
   console.log(`   SHA-256:    ${sha}`);
 
-  // Salva SHA local pra comparar depois (auditoria)
+  // Salva SHA local pra auditoria
   const shaFile = join(ELECTRON_DIR, "release", `${installer.name}.sha256`);
   await writeFile(shaFile, `${sha}  ${installer.name}\n`, "utf8");
   console.log(`   SHA-256 salvo em: ${shaFile}`);
@@ -180,28 +191,28 @@ async function main() {
   // Publica
   if (args.dryRun) {
     console.log("");
-    console.log("🧪 DRY-RUN: tudo OK. Para publicar de verdade, remova --dry-run.");
+    console.log("DRY-RUN: tudo OK. Para publicar de verdade, remova --dry-run.");
     return;
   }
-  console.log("");
-  await runPublish(installer.version, installer.path, false);
+  await runPublish(installer.version, installer.path);
 
   // Resumo final
   console.log("");
-  console.log("═══════════════════════════════════════════");
-  console.log(`✅ Release v${version} publicada!`);
+  console.log("============================================");
+  console.log(`Release v${version} publicada!`);
   console.log(`   Instalador: apps/electron/release/${installer.name}`);
   console.log(`   SHA-256:    ${sha}`);
-  console.log(`   URL pública: ${process.env.R2_PUBLIC_BASE_URL || "(defina R2_PUBLIC_BASE_URL)"}/releases/v${version}/${installer.name}`);
-  console.log(`   latest.yml: ${process.env.R2_PUBLIC_BASE_URL || "(defina R2_PUBLIC_BASE_URL)"}/releases/latest/latest.yml`);
+  const pub = process.env.R2_PUBLIC_BASE_URL || "(defina R2_PUBLIC_BASE_URL)";
+  console.log(`   URL publica: ${pub}/releases/v${version}/${installer.name}`);
+  console.log(`   latest.yml:  ${pub}/releases/latest/latest.yml`);
   console.log("");
-  console.log("📋 Próximos passos:");
-  console.log("   1. Atualizar a página de download (web/download/index.html) com versão e SHA");
-  console.log("   2. (Opcional) Criar tag git + GitHub release com o mesmo instalador");
-  console.log("═══════════════════════════════════════════");
+  console.log("Proximos passos:");
+  console.log(`   1. Atualizar a pagina de download (web/download/index.html) com versao e SHA`);
+  console.log(`   2. (Opcional) Criar tag git + GitHub release com o mesmo instalador`);
+  console.log("============================================");
 }
 
 main().catch((err) => {
-  console.error("❌ Falhou:", err.message);
+  console.error("Falhou:", err.message);
   process.exit(1);
 });

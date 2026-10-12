@@ -76,13 +76,7 @@
       "uninstallDisplayName": "Kairós Desktop Alves",
       "deleteAppDataOnUninstall": false
     },
-    "publish": {
-      "provider": "github",
-      "owner": "appfbj-stack",
-      "repo": "kairos-releases",
-      "releaseType": "release",
-      "channel": "latest"
-    }
+    "publish": "./build/publish.json"
   },
   "dependencies": {
     "@kairos/agent": "workspace:*",
