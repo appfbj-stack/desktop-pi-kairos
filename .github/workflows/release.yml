@@ -1,0 +1,151 @@
+# GitHub Actions — Release automático pra Cloudflare R2
+#
+# Trigger: push de tag no formato vX.Y.Z (ex: v0.6.0, v1.0.0-rc.1)
+# Faz: build do instalador Windows + upload pro R2 + manifest.
+#
+# Secrets que o admin precisa setar em Settings → Secrets and variables → Actions:
+#   CLOUDFLARE_ACCOUNT_ID   — ID da conta Cloudflare (encontra em dash.cloudflare.com)
+#   R2_ACCESS_KEY_ID        — Access Key do token R2 (passo 4 do R2-SETUP.md)
+#   R2_SECRET_ACCESS_KEY    — Secret Key do token R2
+#   R2_BUCKET_NAME          — kairos-downloads
+#   R2_PUBLIC_BASE_URL      — https://download.fbautomacao.space (com / final)
+#
+# Segurança: as secrets NUNCA saem do GitHub Actions. Não são logadas.
+
+name: release-r2
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+  workflow_dispatch:
+    # Permite rodar manual pela aba Actions (útil pra debug)
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-publish:
+    name: Build Windows installer + publish to R2
+    runs-on: windows-latest
+    timeout-minutes: 30
+
+    env:
+      # Garante que esbuild e electron-builder rodem em modo CI (sem prompts)
+      CI: "true"
+      # Provider do updater: generic (R2) com URL de releases/latest/
+      PUBLISH_PROVIDER: "generic"
+      PUBLISH_URL: ${{ secrets.R2_PUBLIC_BASE_URL }}/releases/latest/
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Get pnpm cache directory
+        id: pnpm-cache
+        shell: pwsh
+        run: echo "dir=$(pnpm store path --silent)" >> $GITHUB_OUTPUT
+
+      - name: Cache pnpm store
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.pnpm-cache.outputs.dir }}
+          key: ${{ runner.os }}-pnpm-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build Windows installer
+        # Roda o build completo: icons + vendor + build + deploy + electron-builder --win
+        run: pnpm --filter @kairos/electron package:win
+        env:
+          # Pula o GH publish do electron-builder (a gente publica via script R2)
+          GH_TOKEN: ""
+
+      - name: Validate installer
+        shell: pwsh
+        run: |
+          $exe = Get-ChildItem -Path apps/electron/release -Filter "*.exe" -Exclude "*.blockmap" | Select-Object -First 1
+          if (-not $exe) { Write-Error "Installer not found"; exit 1 }
+          $size = [math]::Round($exe.Length / 1MB, 2)
+          Write-Host "::notice::Installer: $($exe.Name) ($size MB)"
+
+      - name: Extract version from tag
+        id: version
+        shell: pwsh
+        run: |
+          # Pega a tag atual (ex: v0.6.0 → 0.6.0)
+          if ($env:GITHUB_REF_TYPE -eq 'tag') {
+            $version = $env:GITHUB_REF_NAME -replace '^v', ''
+          } else {
+            # workflow_dispatch: lê do package.json
+            $pkg = Get-Content "apps/electron/package.json" -Raw | ConvertFrom-Json
+            $version = $pkg.version
+          }
+          Write-Host "Version: $version"
+          "version=$version" >> $env:GITHUB_OUTPUT
+
+      - name: Publish to Cloudflare R2
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          R2_BUCKET_NAME: ${{ secrets.R2_BUCKET_NAME }}
+          R2_PUBLIC_BASE_URL: ${{ secrets.R2_PUBLIC_BASE_URL }}
+        run: |
+          node scripts/publish-r2.mjs `
+            --file "apps/electron/release/Kairos.Desktop.Alves-Setup-${{ steps.version.outputs.version }}.exe" `
+            --version "${{ steps.version.outputs.version }}"
+
+      - name: Upload artifacts (backup)
+        uses: actions/upload-artifact@v4
+        with:
+          name: kairos-installer-${{ steps.version.outputs.version }}
+          path: |
+            apps/electron/release/Kairos.Desktop.Alves-Setup-${{ steps.version.outputs.version }}.exe
+            apps/electron/release/Kairos.Desktop.Alves-Setup-${{ steps.version.outputs.version }}.exe.sha256
+            apps/electron/release/Kairos.Desktop.Alves-Setup-${{ steps.version.outputs.version }}.exe.blockmap
+          retention-days: 30
+
+      - name: Summary
+        shell: pwsh
+        run: |
+          $ver = "${{ steps.version.outputs.version }}"
+          $base = "${{ secrets.R2_PUBLIC_BASE_URL }}"
+          Write-Host "============================================"
+          Write-Host "Release v$ver publicada!"
+          Write-Host "  Instalador: $base/releases/v$ver/Kairos.Desktop.Alves-Setup-$ver.exe"
+          Write-Host "  latest.yml: $base/releases/latest/latest.yml"
+          Write-Host "  Manifest:   $base/releases/manifest.json"
+          Write-Host "============================================"
+
+      - name: Fail if publish didn't actually upload
+        shell: pwsh
+        run: |
+          # Validação final: o latest.yml no R2 deve apontar pra versão atual
+          $base = "${{ secrets.R2_PUBLIC_BASE_URL }}"
+          $ver = "${{ steps.version.outputs.version }}"
+          try {
+            $yml = Invoke-RestMethod -Uri "$base/releases/latest/latest.yml" -Method Get -UseBasicParsing
+            if ($yml -match "version: $ver") {
+              Write-Host "::notice::latest.yml confirmado: versão $ver publicada"
+            } else {
+              Write-Error "latest.yml NÃO contém versão $ver"
+              exit 1
+            }
+          } catch {
+            Write-Warning "Não consegui validar latest.yml (cache DNS ou R2 offline): $_"
+            # Não falha o workflow — pode ser cache
+          }

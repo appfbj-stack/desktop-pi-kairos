@@ -186,7 +186,13 @@ desktop-pi-kairos/                    ← repositório de código (GitHub)
 ## Pendências
 
 - [ ] **Assinatura digital EV** (Windows SmartScreen warning)
-- [ ] **Auto-update CI** (GitHub Actions pra publicar automaticamente em tag)
+- [x] **Auto-update CI** (GitHub Actions workflow em `.github/workflows/release.yml`)
 - [ ] **Métricas** (PostHog/Plausible na página de download)
 - [ ] **Multi-plataforma** (macOS e Linux, hoje só Windows)
 - [ ] **Cache de download por região** (R2 já replica globalmente; verificar com testes)
+
+## Documentação adicional
+
+- [docs/R2-SETUP.md](R2-SETUP.md) — configurar Cloudflare R2 (bucket, token, DNS)
+- [docs/RELEASE-PROCEDURE.md](RELEASE-PROCEDURE.md) — publicar nova versão (manual)
+- [docs/GHA-SETUP.md](GHA-SETUP.md) — configurar GitHub Actions (auto-publish)
