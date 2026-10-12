@@ -6,7 +6,14 @@ Agente de IA desktop para Windows, controlado por linguagem natural. Usuário le
 
 ## Estado atual
 
-**Sprint 0 — Fundação.** Esqueleto de monorepo criado. App Electron abre a janela "Kairós Desktop Alves" com UI de chat minimalista. Sem loop LLM ainda — vem na Sprint 1.
+**v0.5.0** — app funcional com 13 extensions, loop LLM (OpenAI/Anthropic/OpenRouter/Ollama/Google/MiniMax bundled), 14 tools nativas (`kairos-web-tools` v0.1.0 com web_scrape/extract/search/crawl/youtube), auto-update via electron-updater, licenciamento server-side via `central-kairos` (VPS). Página de download profissional + distribuição via Cloudflare R2.
+
+## Documentação
+
+- [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — separação VPS / R2 / GitHub / app
+- [docs/R2-SETUP.md](docs/R2-SETUP.md) — passo a passo do admin pra configurar Cloudflare R2
+- [docs/RELEASE-PROCEDURE.md](docs/RELEASE-PROCEDURE.md) — como publicar nova versão
+- [web/download/README.md](web/download/README.md) — como atualizar a página de download
 
 ## Stack
 
