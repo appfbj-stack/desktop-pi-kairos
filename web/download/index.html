@@ -1,0 +1,204 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#0a1428" />
+  <meta name="description" content="Baixe o Pi Agente Kairós Desktop para Windows. Assistente de IA com chat, ferramentas, agenda, finanças, OCR e pesquisa." />
+  <title>Pi Agente Kairós — Download para Windows</title>
+  <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
+  <link rel="stylesheet" href="./style.css" />
+</head>
+<body>
+  <!-- Top bar -->
+  <header class="topbar">
+    <div class="container topbar__inner">
+      <a class="brand" href="./" aria-label="Kairós">
+        <span class="brand__mark" aria-hidden="true">
+          <svg viewBox="0 0 64 64" width="32" height="32" focusable="false">
+            <defs>
+              <linearGradient id="kgrad" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0" stop-color="#4ea3ff"/>
+                <stop offset="1" stop-color="#34d6a0"/>
+              </linearGradient>
+            </defs>
+            <rect x="2" y="2" width="60" height="60" rx="14" fill="url(#kgrad)"/>
+            <path d="M14 46V18h12a8 8 0 0 1 0 16H22v12z" fill="#0a1428"/>
+            <circle cx="42" cy="42" r="6" fill="#0a1428"/>
+          </svg>
+        </span>
+        <span class="brand__text">Pi Agente Kairós</span>
+      </a>
+      <nav class="topbar__nav" aria-label="Navegação">
+        <a href="#download">Download</a>
+        <a href="#requirements">Requisitos</a>
+        <a href="#install">Instalação</a>
+        <a href="#support">Suporte</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <!-- Hero -->
+    <section class="hero" id="download">
+      <div class="container hero__inner">
+        <p class="hero__eyebrow">Pi Agente Kairós · Desktop</p>
+        <h1 class="hero__title">Seu assistente inteligente para Windows.</h1>
+        <p class="hero__subtitle">
+          Baixe o Pi Agente Kairós e instale no seu computador. Tenha acesso às
+          funcionalidades do seu assistente com segurança e praticidade.
+        </p>
+
+        <!-- Download card -->
+        <div class="card card--download" aria-labelledby="download-title">
+          <h2 id="download-title" class="card__title">BAIXAR PARA WINDOWS</h2>
+
+          <a class="btn btn--primary"
+             id="download-btn"
+             href="{{DOWNLOAD_URL}}"
+             rel="noopener"
+             download>
+            <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false">
+              <path d="M12 3v12m0 0l-4-4m4 4l4-4M5 21h14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            <span>Baixar instalador</span>
+            <small id="download-size" class="btn__meta">{{FILE_SIZE}} · Windows 10/11 · x64</small>
+          </a>
+
+          <dl class="meta">
+            <div class="meta__row">
+              <dt>Versão</dt>
+              <dd id="meta-version">{{VERSION}}</dd>
+            </div>
+            <div class="meta__row">
+              <dt>Tamanho</dt>
+              <dd id="meta-size">{{FILE_SIZE}}</dd>
+            </div>
+            <div class="meta__row">
+              <dt>Publicado em</dt>
+              <dd id="meta-date">{{PUBLISHED_AT}}</dd>
+            </div>
+            <div class="meta__row meta__row--mono">
+              <dt>SHA-256</dt>
+              <dd id="meta-sha">{{SHA256}}</dd>
+            </div>
+          </dl>
+
+          <p class="card__note">
+            <strong>Aviso de segurança:</strong> Baixe somente pelo domínio oficial
+            Kairós (<code id="official-domain">{{OFFICIAL_DOMAIN}}</code>).
+            Versões baixadas de outros sites não são suportadas.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Requirements -->
+    <section class="section" id="requirements" aria-labelledby="req-title">
+      <div class="container">
+        <h2 id="req-title" class="section__title">Requisitos mínimos</h2>
+        <ul class="grid grid--3">
+          <li class="card card--small">
+            <h3>Sistema</h3>
+            <p>Windows 10 (64 bits) ou superior. Windows 11 recomendado.</p>
+          </li>
+          <li class="card card--small">
+            <h3>Processador</h3>
+            <p>Intel/AMD dual-core 1.6 GHz ou superior (recomendado quad-core).</p>
+          </li>
+          <li class="card card--small">
+            <h3>Memória</h3>
+            <p>4 GB RAM mínimo. 8 GB ou mais recomendado.</p>
+          </li>
+          <li class="card card--small">
+            <h3>Disco</h3>
+            <p>600 MB livres para instalação + espaço para seus documentos.</p>
+          </li>
+          <li class="card card--small">
+            <h3>Internet</h3>
+            <p>Recomendado para chat com IA, atualizações automáticas e licenças.</p>
+          </li>
+          <li class="card card--small">
+            <h3>Permissões</h3>
+            <p>Conta de administrador para a primeira instalação.</p>
+          </li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- Install -->
+    <section class="section section--alt" id="install" aria-labelledby="install-title">
+      <div class="container">
+        <h2 id="install-title" class="section__title">Como instalar</h2>
+        <ol class="steps">
+          <li class="step">
+            <span class="step__num">1</span>
+            <h3>Baixe o instalador</h3>
+            <p>Clique no botão <strong>BAIXAR PARA WINDOWS</strong> acima. O arquivo
+            tem cerca de <span id="install-size">{{FILE_SIZE}}</span>.</p>
+          </li>
+          <li class="step">
+            <span class="step__num">2</span>
+            <h3>Abra o arquivo baixado</h3>
+            <p>Localize o instalador na pasta <em>Downloads</em> e dê duplo-clique.
+            O Windows pode perguntar <em>"Deseja permitir que este app faça alterações?"</em>
+            — responda <strong>Sim</strong>.</p>
+            <p class="step__tip">
+              <strong>SmartScreen:</strong> Na primeira execução o Windows pode mostrar
+              um aviso de segurança (instalador não-assinado digitalmente). Clique
+              em <em>Mais informações</em> → <em>Executar mesmo assim</em>.
+              Esse aviso some em versões futuras quando o certificado for aplicado.
+            </p>
+          </li>
+          <li class="step">
+            <span class="step__num">3</span>
+            <h3>Siga o instalador</h3>
+            <p>Escolha a pasta de instalação (ou aceite o padrão) e clique em
+            <strong>Instalar</strong>. O assistente cuida de tudo.</p>
+          </li>
+          <li class="step">
+            <span class="step__num">4</span>
+            <h3>Abra o Pi Agente Kairós</h3>
+            <p>Ao terminar, o app abre automaticamente. Faça login com sua conta
+            ou ative sua licença — a validação é feita pela nossa API.</p>
+          </li>
+        </ol>
+      </div>
+    </section>
+
+    <!-- Support -->
+    <section class="section" id="support" aria-labelledby="support-title">
+      <div class="container">
+        <h2 id="support-title" class="section__title">Suporte</h2>
+        <p class="section__lead">
+          Encontrou algum problema na instalação ou no uso? Estamos aqui pra ajudar.
+        </p>
+        <div class="grid grid--2">
+          <div class="card card--small">
+            <h3>WhatsApp</h3>
+            <p>Atendimento rápido em horário comercial.</p>
+            <p><a class="link" id="support-whatsapp" href="{{SUPPORT_WHATSAPP}}">Abrir conversa →</a></p>
+          </div>
+          <div class="card card--small">
+            <h3>E-mail</h3>
+            <p>Para questões técnicas e solicitações.</p>
+            <p><a class="link" id="support-email" href="mailto:{{SUPPORT_EMAIL}}">{{SUPPORT_EMAIL}}</a></p>
+          </div>
+        </div>
+        <p class="section__note">
+          O Pi Agente Kairós é um produto oficial da Kairós. Verifique sempre se
+          você está acessando o domínio correto (<code id="official-domain-2">{{OFFICIAL_DOMAIN}}</code>).
+        </p>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <div class="container footer__inner">
+      <p>© 2026 Kairós · Todos os direitos reservados</p>
+      <p>Este instalador é distribuído via Cloudflare R2. A validação da licença
+      é feita pela API oficial Kairós.</p>
+    </div>
+  </footer>
+</body>
+</html>
