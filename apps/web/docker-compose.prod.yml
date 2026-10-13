@@ -1,0 +1,16 @@
+services:
+  kairos-pwa:
+    build: .
+    container_name: kairos-pwa
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:4041:3030"
+    environment:
+      - NODE_ENV=production
+      - NEXT_PUBLIC_API_URL=https://central.fbautomacao.space
+    networks:
+      - dokploy-network
+
+networks:
+  dokploy-network:
+    external: true

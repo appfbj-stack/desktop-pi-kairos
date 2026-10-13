@@ -1,0 +1,12 @@
+{
+  "name": "Kairos - Assistente Pessoal",
+  "short_name": "Kairos",
+  "description": "Converse com a IA do Kairos direto do navegador.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0a1d3a",
+  "theme_color": "#0a1d3a",
+  "icons": [
+    { "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}

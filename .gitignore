@@ -77,3 +77,8 @@ tests/
 # install/rebuild logs (gerados durante setup, não versionar)
 *.log
 !.gitkeep
+
+# Next.js
+apps/web/.next/
+apps/web/node_modules/
+
