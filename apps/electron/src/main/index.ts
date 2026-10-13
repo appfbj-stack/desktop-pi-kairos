@@ -10,6 +10,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createMainWindow } from "./window.js";
 import { registerIpcHandlers } from "./ipc.js";
+import { registerAgentIpc, tryRestoreAgent } from "./pwa-ipc.js";
 import { initAutoUpdater, getCurrentVersion } from "./updater.js";
 import { initProvider } from "./agent-instance.js";
 import { logger } from "@kairos/core";
@@ -25,6 +26,15 @@ app.whenReady().then(async () => {
   await initProvider();
 
   registerIpcHandlers();
+  registerAgentIpc();
+  // Tenta restaurar sessão de agente (central-kairos) se já tiver login salvo.
+  // Roda em background — não bloqueia a abertura da janela.
+  tryRestoreAgent().then((store) => {
+    if (store) {
+      logger.info({ deviceId: store.deviceId, status: store.status }, "[main] sessão do agente restaurada");
+    }
+  });
+
   createMainWindow({ isDev });
 
   // Auto-update só em produção (no dev roda via vite + electron, não tem .exe)

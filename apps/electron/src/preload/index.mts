@@ -22,6 +22,22 @@ export interface LicenseStatus {
   cachedAt?: number;
 }
 
+/** Status do pareamento com a central-kairos (Sprint 1.20). */
+export interface AgentData {
+  version: number;
+  apiUrl: string;
+  clientJwt: string;
+  clientEmail: string;
+  clientLoggedInAt: number;
+  deviceId: string;
+  deviceName: string;
+  otpToken: string;
+  otpCode: string;
+  status: "pending" | "active" | "revoked";
+  deviceToken?: string;
+  activatedAt?: number;
+}
+
 export interface AttachmentSummary {
   name: string;
   size: number;
@@ -208,6 +224,29 @@ const api = {
   // Máscara da chave API (Settings exibe)
   getMaskedApiKey: (): Promise<{ masked: string }> =>
     ipcRenderer.invoke("app:api-key:masked"),
+
+  // ===== Agent (Sprint 1.20 — central-kairos) =====
+  // Login com a mesma conta da PWA + emparelhamento do device.
+  agent: {
+    login: (args: { email: string; password: string; apiUrl?: string }): Promise<{ ok: boolean; status?: unknown; error?: string }> =>
+      ipcRenderer.invoke("client:login", args),
+    logout: (): Promise<{ ok: boolean; error?: string }> =>
+      ipcRenderer.invoke("client:logout"),
+    status: (): Promise<{ status: AgentData | null; defaultApiUrl: string }> =>
+      ipcRenderer.invoke("client:status"),
+    setApiUrl: (url: string): Promise<{ ok: boolean; apiUrl?: string; error?: string }> =>
+      ipcRenderer.invoke("client:set-api-url", url),
+    resume: (): Promise<{ ok: boolean; status?: unknown; error?: string }> =>
+      ipcRenderer.invoke("client:resume"),
+    onStatus: (
+      cb: (payload: { status: AgentData | null; event: string; payload?: unknown }) => void
+    ): (() => void) => {
+      const handler = (_e: unknown, data: { status: AgentData | null; event: string; payload?: unknown }) =>
+        cb(data);
+      ipcRenderer.on("agent:status", handler);
+      return () => ipcRenderer.off("agent:status", handler);
+    },
+  },
 
   // Auto-update (Sprint 1.20)
   update: {
