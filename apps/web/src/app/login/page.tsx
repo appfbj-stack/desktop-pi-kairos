@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { api, setToken, type Client } from "@/lib/auth";
@@ -11,6 +11,22 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [mode, setMode] = useState<"login" | "signup">("login");
+
+  // Auto-login dev: se backend tem AUTO_LOGIN_EMAIL setado, redireciona direto pro chat
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const r = await api<{ token: string; client: Client }>("/api/pwa/auth/auto-login", { method: "GET" });
+        if (cancelled) return;
+        if (r?.token) {
+          setToken(r.token);
+          router.replace("/chat");
+        }
+      } catch { /* auto-login desabilitado, mostra form normal */ }
+    })();
+    return () => { cancelled = true; };
+  }, [router]);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
