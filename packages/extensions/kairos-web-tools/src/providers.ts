@@ -14,6 +14,10 @@ const JINA_KEY = process.env.JINA_API_KEY?.trim() || "";
 const BRAVE_KEY = process.env.BRAVE_API_KEY?.trim() || "";
 const FIRECRAWL_KEY = process.env.FIRECRAWL_API_KEY?.trim() || "";
 const TAVILY_KEY = process.env.TAVILY_API_KEY?.trim() || "";
+const OPENAI_KEY = process.env.OPENAI_API_KEY?.trim() || "";
+const PARALLEL_KEY = process.env.PARALLEL_API_KEY?.trim() || "";
+const GOOGLE_PSE_KEY = process.env.GOOGLE_PSE_KEY?.trim() || "";
+const GOOGLE_PSE_CX = process.env.GOOGLE_PSE_CX?.trim() || "";
 
 export const providers = {
   jina: {
@@ -35,6 +39,32 @@ export const providers = {
     available: TAVILY_KEY.length > 0,
     apiKey: TAVILY_KEY,
     baseUrl: "https://api.tavily.com",
+  },
+  openai: {
+    available: OPENAI_KEY.length > 0,
+    apiKey: OPENAI_KEY,
+    baseUrl: "https://api.openai.com/v1",
+  },
+  parallel: {
+    available: PARALLEL_KEY.length > 0,
+    apiKey: PARALLEL_KEY,
+    baseUrl: "https://api.parallel.ai",
+  },
+  google_pse: {
+    available: GOOGLE_PSE_KEY.length > 0 && GOOGLE_PSE_CX.length > 0,
+    apiKey: GOOGLE_PSE_KEY,
+    searchEngineId: GOOGLE_PSE_CX,
+    baseUrl: "https://www.googleapis.com/customsearch/v1",
+  },
+  /** Provider keyless: scraping básico de páginas HTML via fetch puro.
+   *  Não funciona em sites com JS ou anti-bot, mas não precisa de key. */
+  direct: {
+    available: true,
+  },
+  /** Provider keyless: busca via DuckDuckGo HTML (lite.duckduckgo.com).
+   *  Menos resultados que Google mas zero config. */
+  ddg: {
+    available: true,
   },
 } as const;
 
