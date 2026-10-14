@@ -192,6 +192,21 @@ export async function* handleUserMessage(
   const a = await getAgent(sessionId);
   const store = getStore();
 
+  // expõe tenant atual pras tools das extensions (memory/crm/indexer/context)
+  try {
+    const agentStore = await import("./agent-store.js").then((m) => m.getAgentStore());
+    if (agentStore?.clientId) {
+      (globalThis as any).__kairosClientId = agentStore.clientId;
+      (globalThis as any).__kairosClientEmail = agentStore.clientEmail;
+    } else {
+      // Sem login: ainda assim zera pra não vazar tenant anterior
+      (globalThis as any).__kairosClientId = null;
+      (globalThis as any).__kairosClientEmail = null;
+    }
+  } catch (err) {
+    logger.warn({ err: String(err) }, "tenant hydrate falhou");
+  }
+
   // Persiste mensagem do user
   store.addMessage(sessionId, "user", userMessage, { attachments });
 
@@ -303,6 +318,20 @@ export async function* handleUserMessage(
 export async function stopAgent(sessionId: string): Promise<void> {
   const a = await getAgent(sessionId);
   a.stop();
+}
+
+/** Reseta o tenant atual. Chamado em logout / troca de cliente. */
+export function clearCurrentClient(): void {
+  (globalThis as any).__kairosClientId = null;
+  (globalThis as any).__kairosClientEmail = null;
+  logger.info("agent-instance: tenant reset (logout/troca)");
+}
+
+/** Seta o tenant atual. Chamado no login ou restore. */
+export function setCurrentClient(clientId: string, email: string): void {
+  (globalThis as any).__kairosClientId = clientId;
+  (globalThis as any).__kairosClientEmail = email;
+  logger.info({ clientId, email }, "agent-instance: tenant set");
 }
 
 /** Carrega provider config (built-in MiniMax → env vars → override disco). Chamar no app.whenReady. */

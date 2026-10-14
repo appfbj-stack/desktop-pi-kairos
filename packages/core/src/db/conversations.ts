@@ -15,6 +15,7 @@ import { randomUUID } from "node:crypto";
 
 export interface Conversation {
   id: string;
+  clientId: string | null;
   createdAt: number;
   updatedAt: number;
   title: string | null;
@@ -23,6 +24,7 @@ export interface Conversation {
 export interface Message {
   id: string;
   conversationId: string;
+  clientId: string | null;
   role: "user" | "assistant" | "tool" | "system";
   content: string;
   attachments: string | null; // JSON
@@ -37,6 +39,11 @@ export interface AttachmentInput {
   mime: string;
 }
 
+/** Retorna o tenant atual (null se deslogado). Lido de globalThis. */
+function currentClientId(): string | null {
+  return ((globalThis as any).__kairosClientId as string | null) ?? null;
+}
+
 export class ConversationStore {
   constructor(private db: Database.Database) {}
 
@@ -45,49 +52,53 @@ export class ConversationStore {
   createConversation(title?: string): Conversation {
     const id = randomUUID();
     const now = Date.now();
+    const clientId = currentClientId();
     this.db
       .prepare(
-        "INSERT INTO conversations (id, created_at, updated_at, title) VALUES (?, ?, ?, ?)"
+        "INSERT INTO conversations (id, client_id, created_at, updated_at, title) VALUES (?, ?, ?, ?, ?)"
       )
-      .run(id, now, now, title ?? null);
-    return { id, createdAt: now, updatedAt: now, title: title ?? null };
+      .run(id, clientId, now, now, title ?? null);
+    return { id, clientId, createdAt: now, updatedAt: now, title: title ?? null };
   }
 
   getConversation(id: string): Conversation | null {
     const row = this.db
       .prepare(
-        "SELECT id, created_at as createdAt, updated_at as updatedAt, title FROM conversations WHERE id = ?"
+        "SELECT id, client_id as clientId, created_at as createdAt, updated_at as updatedAt, title FROM conversations WHERE id = ?"
       )
       .get(id) as
-      | { id: string; createdAt: number; updatedAt: number; title: string | null }
+      | { id: string; clientId: string | null; createdAt: number; updatedAt: number; title: string | null }
       | undefined;
     return row ?? null;
   }
 
+  /** Lista conversas DO TENANT ATUAL. Conversas sem client_id (legado) ficam ocultas. */
   listConversations(limit = 100): Conversation[] {
-    const rows = this.db
+    const clientId = currentClientId();
+    if (!clientId) return []; // sem tenant = sem nada
+    return this.db
       .prepare(
-        `SELECT id, created_at as createdAt, updated_at as updatedAt, title
+        `SELECT id, client_id as clientId, created_at as createdAt, updated_at as updatedAt, title
          FROM conversations
+         WHERE client_id = ?
          ORDER BY updated_at DESC
          LIMIT ?`
       )
-      .all(limit) as Conversation[];
-    return rows;
+      .all(clientId, limit) as Conversation[];
   }
 
   updateTitle(id: string, title: string): void {
     this.db
-      .prepare("UPDATE conversations SET title = ?, updated_at = ? WHERE id = ?")
-      .run(title, Date.now(), id);
+      .prepare("UPDATE conversations SET title = ?, updated_at = ? WHERE id = ? AND client_id = ?")
+      .run(title, Date.now(), id, currentClientId());
   }
 
   touch(id: string): void {
-    this.db.prepare("UPDATE conversations SET updated_at = ? WHERE id = ?").run(Date.now(), id);
+    this.db.prepare("UPDATE conversations SET updated_at = ? WHERE id = ? AND client_id = ?").run(Date.now(), id, currentClientId());
   }
 
   deleteConversation(id: string): void {
-    this.db.prepare("DELETE FROM conversations WHERE id = ?").run(id);
+    this.db.prepare("DELETE FROM conversations WHERE id = ? AND client_id = ?").run(id, currentClientId());
   }
 
   // ── Messages ────────────────────────────────────────────────
@@ -100,19 +111,21 @@ export class ConversationStore {
   ): Message {
     const id = randomUUID();
     const now = Date.now();
+    const clientId = currentClientId();
     const attachments = options.attachments && options.attachments.length > 0
       ? JSON.stringify(options.attachments.map((a) => ({ name: a.name, size: a.size, type: a.type, mime: a.mime })))
       : null;
     this.db
       .prepare(
-        `INSERT INTO messages (id, conversation_id, role, content, attachments, tool_name, created_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?)`
+        `INSERT INTO messages (id, conversation_id, client_id, role, content, attachments, tool_name, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
       )
-      .run(id, conversationId, role, content, attachments, options.toolName ?? null, now);
+      .run(id, conversationId, clientId, role, content, attachments, options.toolName ?? null, now);
     this.touch(conversationId);
     return {
       id,
       conversationId,
+      clientId,
       role,
       content,
       attachments,
@@ -124,14 +137,14 @@ export class ConversationStore {
   listMessages(conversationId: string, limit = 500): Message[] {
     const rows = this.db
       .prepare(
-        `SELECT id, conversation_id as conversationId, role, content,
+        `SELECT id, conversation_id as conversationId, client_id as clientId, role, content,
                 attachments, tool_name as toolName, created_at as createdAt
          FROM messages
-         WHERE conversation_id = ?
+         WHERE conversation_id = ? AND client_id = ?
          ORDER BY created_at ASC
          LIMIT ?`
       )
-      .all(conversationId, limit) as Message[];
+      .all(conversationId, currentClientId(), limit) as Message[];
     return rows;
   }
 

@@ -35,19 +35,21 @@ export function estimateTokens(text: string): number {
   return Math.ceil(text.length / 4);
 }
 
-/** Schema da tabela summaries. Criada on-demand. */
+/** Schema da tabela summaries (multi-tenant via client_id). */
 const SCHEMA = `
 CREATE TABLE IF NOT EXISTS conversation_summaries (
   id TEXT PRIMARY KEY,
+  client_id TEXT,
   conversation_id TEXT NOT NULL,
   summary TEXT NOT NULL,
   compressed_count INTEGER NOT NULL,
   start_message_id TEXT,
   end_message_id TEXT,
   created_at INTEGER NOT NULL,
-  UNIQUE(conversation_id)
+  UNIQUE(client_id, conversation_id)
 );
 CREATE INDEX IF NOT EXISTS summaries_conv_idx ON conversation_summaries(conversation_id);
+CREATE INDEX IF NOT EXISTS summaries_client_idx ON conversation_summaries(client_id);
 `;
 
 let schemaReady = false;
@@ -56,7 +58,13 @@ function ensureSchema(db: Database.Database): void {
   for (const stmt of SCHEMA.split(";").map((s) => s.trim()).filter(Boolean)) {
     db.exec(stmt);
   }
+  // migrations idempotentes
+  try { db.exec("ALTER TABLE conversation_summaries ADD COLUMN client_id TEXT"); } catch { /* já existe */ }
   schemaReady = true;
+}
+
+function currentClientId(): string | null {
+  return ((globalThis as any).__kairosClientId as string | null) ?? null;
 }
 
 /**
@@ -74,28 +82,30 @@ export function getCompressedHistory(
   ensureSchema(db);
   const keepRecent = options.keepRecent ?? 20;
   const maxTokens = options.maxTokens ?? 8000;
+  const cid = currentClientId();
+  if (!cid) return { recent: [], summary: "", compressedCount: 0, recentCount: 0, estimatedTokens: 0 };
 
-  // Pega todas as mensagens user/assistant
+  // Pega todas as mensagens user/assistant (filtrado por tenant)
   const all = db
     .prepare(
       `SELECT id, role, content, created_at as createdAt
        FROM messages
-       WHERE conversation_id = ? AND role IN ('user', 'assistant')
+       WHERE conversation_id = ? AND client_id = ? AND role IN ('user', 'assistant')
        ORDER BY created_at ASC`,
     )
-    .all(conversationId) as Array<{ id: string; role: string; content: string; createdAt: number }>;
+    .all(conversationId, cid) as Array<{ id: string; role: string; content: string; createdAt: number }>;
 
   if (all.length === 0) {
     return { recent: [], summary: "", compressedCount: 0, recentCount: 0, estimatedTokens: 0 };
   }
 
-  // Pega sumário salvo (se existir)
+  // Pega sumário salvo (se existir) — filtrado por tenant
   const sumRow = db
     .prepare(
       `SELECT summary, compressed_count as compressedCount, end_message_id as endMessageId
-       FROM conversation_summaries WHERE conversation_id = ?`,
+       FROM conversation_summaries WHERE client_id = ? AND conversation_id = ?`,
     )
-    .get(conversationId) as
+    .get(cid, conversationId) as
     | { summary: string; compressedCount: number; endMessageId: string | null }
     | undefined;
 
@@ -160,26 +170,30 @@ export function saveSummary(
   endMessageId: string,
 ): void {
   ensureSchema(db);
+  const cid = currentClientId();
+  if (!cid) return;
   const now = Date.now();
   db.prepare(
-    `INSERT INTO conversation_summaries (id, conversation_id, summary, compressed_count, end_message_id, created_at)
-     VALUES (?, ?, ?, ?, ?, ?)
-     ON CONFLICT(conversation_id) DO UPDATE SET
+    `INSERT INTO conversation_summaries (id, client_id, conversation_id, summary, compressed_count, end_message_id, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT(client_id, conversation_id) DO UPDATE SET
        summary = excluded.summary,
        compressed_count = excluded.compressed_count,
        end_message_id = excluded.end_message_id,
        created_at = excluded.created_at`,
-  ).run(randomUUID(), conversationId, summary, compressedCount, endMessageId, now);
-  logger.info({ conversationId, compressedCount, summaryLen: summary.length }, "context: summary saved");
+  ).run(randomUUID(), cid, conversationId, summary, compressedCount, endMessageId, now);
+  logger.info({ conversationId, compressedCount, summaryLen: summary.length, clientId: cid }, "context: summary saved");
 }
 
 /** Conta quantas mensagens "user/assistant" tem no total (sem compressão). */
 export function countMessages(db: Database.Database, conversationId: string): number {
+  const cid = currentClientId();
+  if (!cid) return 0;
   const row = db
     .prepare(
       `SELECT COUNT(*) as c FROM messages
-       WHERE conversation_id = ? AND role IN ('user', 'assistant')`,
+       WHERE conversation_id = ? AND client_id = ? AND role IN ('user', 'assistant')`,
     )
-    .get(conversationId) as { c: number };
+    .get(conversationId, cid) as { c: number };
   return row.c;
 }

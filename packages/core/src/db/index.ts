@@ -30,6 +30,7 @@ export function openDatabase(workspaceDir: string): KairósDB {
   raw.exec(`
     CREATE TABLE IF NOT EXISTS conversations (
       id TEXT PRIMARY KEY,
+      client_id TEXT,
       created_at INTEGER NOT NULL,
       updated_at INTEGER NOT NULL,
       title TEXT
@@ -38,6 +39,7 @@ export function openDatabase(workspaceDir: string): KairósDB {
     CREATE TABLE IF NOT EXISTS messages (
       id TEXT PRIMARY KEY,
       conversation_id TEXT NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
+      client_id TEXT,
       role TEXT NOT NULL,
       content TEXT NOT NULL,
       attachments TEXT,
@@ -60,7 +62,13 @@ export function openDatabase(workspaceDir: string): KairósDB {
 
     CREATE INDEX IF NOT EXISTS idx_messages_conversation ON messages(conversation_id);
     CREATE INDEX IF NOT EXISTS idx_messages_created_at ON messages(created_at);
+    CREATE INDEX IF NOT EXISTS idx_conversations_client ON conversations(client_id);
+    CREATE INDEX IF NOT EXISTS idx_messages_client ON messages(client_id);
   `);
+
+  // Migrations idempotentes — ADD COLUMN em tabelas pre-existentes.
+  try { raw.exec(`ALTER TABLE conversations ADD COLUMN client_id TEXT`); } catch { /* coluna já existe */ }
+  try { raw.exec(`ALTER TABLE messages ADD COLUMN client_id TEXT`); } catch { /* coluna já existe */ }
 
   return {
     raw,

@@ -99,7 +99,7 @@ export async function loginAndStart(
   logger.info({ apiUrl: apiUrlClean, email }, "[agent-client] login");
 
   // 1) Login no /api/pwa/auth/login
-  const loginRes = await fetchJson<{ token: string; client: { id: string; email: string } }>(
+  const loginRes = await fetchJson<{ token: string; client: { id: string; email: string; name?: string } }>(
     `${apiUrlClean}/api/pwa/auth/login`,
     { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email, password }) },
     "login"
@@ -133,6 +133,7 @@ export async function loginAndStart(
     apiUrl: apiUrlClean,
     clientJwt: loginRes.data!.token,
     clientEmail: loginRes.data!.client.email,
+    clientId: loginRes.data!.client.id,
     clientLoggedInAt: Date.now(),
     deviceId: devRes.data!.deviceId,
     deviceName: `Electron @ ${os.userInfo().username}`,

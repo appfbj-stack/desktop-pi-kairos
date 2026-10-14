@@ -30,6 +30,8 @@ export interface AgentData {
   clientJwt: string;
   /** Email logado (apenas para UI). */
   clientEmail: string;
+  /** ID único do cliente no PWA SaaS (tenant_id). Vem do login response. */
+  clientId: string;
   /** Data do login. */
   clientLoggedInAt: number;
 

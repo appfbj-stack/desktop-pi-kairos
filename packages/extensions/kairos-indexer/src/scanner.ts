@@ -202,6 +202,12 @@ export function scanFolder(rootPath: string, options: ScanOptions = {}): ScanRes
           preview,
         });
 
+        // upsertFile retorna null se não há tenant ativo
+        if (!file) {
+          result.errors.push({ path: fullPath, err: "sem tenant ativo (não logado)" });
+          continue;
+        }
+
         const tags = tagFile({ path: fullPath, ext, mime });
         if (tags.length > 0) {
           replaceHeuristicTags(file.id, tags);

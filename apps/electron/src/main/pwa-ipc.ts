@@ -26,6 +26,7 @@ import {
   logoutAgentClient,
   loginAndStart,
 } from "./agent-client.js";
+import { clearCurrentClient, setCurrentClient } from "./agent-instance.js";
 
 const DEFAULT_API_URL = process.env.KAIROS_CENTRAL_URL || "https://central.fbautomacao.space";
 
@@ -51,6 +52,9 @@ export function registerAgentIpc(): void {
         },
       });
       currentStatus = data;
+      // tenant novo: zera cache de outro cliente se houver
+      clearCurrentClient();
+      setCurrentClient(data.clientId, data.clientEmail);
       return { ok: true, status: data };
     } catch (err) {
       logger.error({ err: String(err) }, "[pwa-ipc] login falhou");
@@ -62,6 +66,7 @@ export function registerAgentIpc(): void {
   ipcMain.handle("client:logout", async () => {
     try {
       await logoutAgentClient();
+      clearCurrentClient();
       currentStatus = null;
       pushStatus("logout");
       return { ok: true };

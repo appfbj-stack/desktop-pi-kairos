@@ -221,6 +221,7 @@ export const indexerAddFolderWatch: Tool = {
     if (!path.isAbsolute(p)) return `❌ Caminho precisa ser absoluto: \`${p}\``;
     if (!fs.existsSync(p)) return `❌ Pasta não existe: \`${p}\``;
     const watch = addWatch({ path: p, recursive });
+    if (!watch) return `❌ Sem tenant ativo (não logado)`;
     return `✅ Pasta adicionada ao índice:\n- \`${watch.path}\` (recursivo: ${!!watch.recursive})\n\nUse \`indexer_scan_folder\` com este path pra indexar agora.`;
   },
 };
