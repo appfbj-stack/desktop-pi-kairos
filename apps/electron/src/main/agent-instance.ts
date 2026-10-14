@@ -40,6 +40,7 @@ import kairosPiBridge, { getPiTools, applyPiTools } from "@kairos/extension-pi-b
 import kairosWebTools from "@kairos/extension-web-tools";
 import kairosTravel from "@kairos/extension-travel";
 import kairosContext, { getCompressedHistory } from "@kairos/extension-context";
+import kairosMemory, { listAll as listMemory } from "@kairos/extension-memory";
 import { openDatabase, ConversationStore, logger, type KairósDB } from "@kairos/core";
 
 interface AgentEntry {
@@ -122,6 +123,7 @@ export async function getAgent(sessionId: string): Promise<Agent> {
       "kairos-web-tools",
       "kairos-travel",
       "kairos-context",
+      "kairos-memory",
     ],
     locale: "pt-BR",
   });
@@ -142,6 +144,7 @@ export async function getAgent(sessionId: string): Promise<Agent> {
   registerExtension(agent.tools, kairosWebTools);
   registerExtension(agent.tools, kairosTravel);
   registerExtension(agent.tools, kairosContext);
+  registerExtension(agent.tools, kairosMemory);
 
   registerExtension(agent.tools, kairosPiBridge);
 
@@ -203,6 +206,21 @@ export async function* handleUserMessage(
       );
     } else {
       history = compressed.recent.slice(0, -1); // -1 = última (a que acabamos de salvar)
+    }
+
+    // === AUTO-RECALL: injeta memórias relevantes do negócio como contexto ===
+    try {
+      const memories = listMemory({ limit: 30 });
+      if (memories.length > 0) {
+        const memBlock = memories
+          .map((m) => `- **${m.key}** [${m.category}]: ${m.value}`)
+          .join("\n");
+        const systemContext = `[Memória do negócio do cliente — salva em sessões anteriores]\n${memBlock}\n\nUse essas informações como contexto automaticamente. Atualize com remember_business_context quando o cliente falar algo novo.`;
+        history.unshift({ role: "assistant", content: systemContext });
+        logger.info({ count: memories.length }, "memory: auto-injetada no contexto");
+      }
+    } catch (err) {
+      logger.warn({ err: String(err) }, "memory: auto-recall falhou");
     }
   } catch (err) {
     logger.warn({ err: String(err) }, "history: compressão falhou, usando fallback");
