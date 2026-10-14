@@ -26,12 +26,13 @@ import { writeTool } from "./tools/write.js";
 import { deleteTool } from "./tools/delete.js";
 import { moveTool } from "./tools/move.js";
 import { searchTool } from "./tools/search.js";
+import { ingestFolderTool } from "./tools/ingest.js";
 
 const extension: Extension = {
   name: "kairos-files",
   version: "0.1.0",
   description:
-    "Operações de file system com whitelist de paths. Cria, lê, escreve, move, exclui e procura arquivos/pastas.",
+    "Operações de file system com whitelist de paths. Cria, lê, escreve, move, exclui, procura e ingere arquivos/pastas.",
   tools: [
     mkdirTool,
     listTool,
@@ -40,6 +41,7 @@ const extension: Extension = {
     deleteTool,
     moveTool,
     searchTool,
+    ingestFolderTool,
   ] as unknown as Tool<z.ZodTypeAny>[],
 };
 

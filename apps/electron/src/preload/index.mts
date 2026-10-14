@@ -76,6 +76,15 @@ const api = {
   attach: (paths: string[]): Promise<Attachment[]> =>
     ipcRenderer.invoke("agent:attach", paths),
 
+  /** Pega o path absoluto de um File (dropped via drag-and-drop).
+   *  Usa webUtils do Electron (substituiu o File.path deprecated em Electron 32+). */
+  getPathForFile: (file: File): string => webUtils.getPathForFile(file),
+
+  /** Diálogo nativo pra escolher pasta. */
+  openFolderDialog: (): Promise<
+    { canceled: true; folder: null } | { canceled: false; folder: { path: string; name: string } }
+  > => ipcRenderer.invoke("dialog:open-folder"),
+
   // Sessão
   start: (
     sessionId: string

@@ -14,7 +14,7 @@
  * textarea meio, voz/enviar a direita.
  */
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { VoiceButton } from "./VoiceButton";
 
 const ROTATING_HINTS = [
@@ -33,7 +33,9 @@ export function InputBar({
   busy,
   disabled,
   onAttach,
+  onAttachFolder,
   onAttachWorkspace,
+  onDropPaths,
   voiceProps,
   usage,
 }: {
@@ -44,7 +46,9 @@ export function InputBar({
   busy: boolean;
   disabled?: boolean;
   onAttach?: () => void;
+  onAttachFolder?: () => void;
   onAttachWorkspace?: () => void;
+  onDropPaths?: (paths: string[]) => void;
   voiceProps?: {
     onTranscript: (text: string, isFinal: boolean) => void;
     onAutoSend: (text: string) => void;
@@ -53,6 +57,7 @@ export function InputBar({
 }) {
   const ref = useRef<HTMLTextAreaElement>(null);
   const hintIdxRef = useRef(0);
+  const [dragOver, setDragOver] = useState(false);
 
   // Auto-resize (1 a 6 linhas)
   useEffect(() => {
@@ -103,15 +108,51 @@ export function InputBar({
   const charCount = value.length;
   const showCount = charCount > 200;
 
+  // === Drag-and-drop de arquivos/pastas ===
+  function onDragOver(e: React.DragEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!disabled && !busy) setDragOver(true);
+  }
+  function onDragLeave(e: React.DragEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragOver(false);
+  }
+  async function onDrop(e: React.DragEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragOver(false);
+    if (disabled || busy || !onDropPaths) return;
+    const files = Array.from(e.dataTransfer.files);
+    if (files.length === 0) return;
+    // Pega path absoluto via webUtils (Electron 30+)
+    const paths: string[] = [];
+    for (const f of files) {
+      try {
+        const p = (window as any).kairos?.getPathForFile?.(f);
+        if (p) paths.push(p);
+      } catch {
+        // ignora
+      }
+    }
+    if (paths.length > 0) onDropPaths(paths);
+  }
+
   return (
     <div className="px-4 pb-4 pt-2 bg-gradient-to-t from-slate-900 via-slate-900 to-transparent">
       <div
+        onDragOver={onDragOver}
+        onDragLeave={onDragLeave}
+        onDrop={onDrop}
         className={`mx-auto flex max-w-3xl items-end gap-2 rounded-3xl border bg-slate-800/80 px-3 py-2 shadow-lg backdrop-blur transition-all duration-150 ${
-          disabled
-            ? "border-slate-700/50 opacity-50"
-            : busy
-              ? "border-slate-700"
-              : "border-slate-700 shadow-emerald-900/0 focus-within:border-emerald-500/60 focus-within:shadow-emerald-900/20 focus-within:shadow-xl"
+          dragOver
+            ? "border-emerald-500 ring-2 ring-emerald-500/40 bg-slate-800"
+            : disabled
+              ? "border-slate-700/50 opacity-50"
+              : busy
+                ? "border-slate-700"
+                : "border-slate-700 shadow-emerald-900/0 focus-within:border-emerald-500/60 focus-within:shadow-emerald-900/20 focus-within:shadow-xl"
         }`}
       >
         {/* Botoes de anexar a esquerda (compacto) */}
@@ -141,6 +182,20 @@ export function InputBar({
             >
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+              </svg>
+            </button>
+          )}
+          {onAttachFolder && (
+            <button
+              type="button"
+              onClick={onAttachFolder}
+              disabled={busy}
+              className="flex h-9 w-9 items-center justify-center rounded-full text-slate-400 hover:bg-slate-700 hover:text-slate-100 disabled:opacity-40 transition-colors"
+              title="Anexar pasta inteira"
+              aria-label="Anexar pasta"
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
               </svg>
             </button>
           )}

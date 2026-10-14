@@ -492,6 +492,30 @@ export function App() {
     setPendingAttachments((prev) => [...prev, ...result.files]);
   }
 
+  async function handleAttachFolder() {
+    if (busy) return;
+    const result = await window.kairos!.openFolderDialog();
+    if (result.canceled) return;
+    // Anexa o caminho da pasta como attachment (o LLM usa files:ingest_folder depois)
+    setPendingAttachments((prev) => [
+      ...prev,
+      { name: "📁 " + result.folder.name, size: 0, path: result.folder.path },
+    ]);
+    // Mensagem automática no input pra LLM saber o que fazer
+    setDraft((d) => d ? `${d}\n` : "Analise esta pasta: ");
+  }
+
+  /** Drag-and-drop handler — converte Files (de drop) em paths via webUtils */
+  async function handleDroppedPaths(paths: string[]) {
+    if (busy || paths.length === 0) return;
+    const items = paths.map((p) => ({
+      name: p.split(/[\\/]/).pop() || p,
+      size: 0,
+      path: p,
+    }));
+    setPendingAttachments((prev) => [...prev, ...items]);
+  }
+
   async function handleAttachFromWorkspace(item: { name: string; size: number; path: string }) {
     if (busy) return;
     // Converte path relativo do workspace pra path absoluto
@@ -1052,7 +1076,9 @@ export function App() {
           busy={busy}
           disabled={usage?.blocked}
           onAttach={() => void handleAttach()}
+          onAttachFolder={() => void handleAttachFolder()}
           onAttachWorkspace={() => setShowWorkspacePicker(true)}
+          onDropPaths={(paths) => void handleDroppedPaths(paths)}
           voiceProps={{
             onTranscript: (text) => setDraft(text),
             onAutoSend: (text) => {

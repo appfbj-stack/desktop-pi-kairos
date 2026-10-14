@@ -136,6 +136,24 @@ export function registerIpcHandlers(): void {
     return attachments;
   });
 
+  // Diálogo pra selecionar pasta inteira (Sprint 1.21)
+  ipcMain.handle("dialog:open-folder", async (event) => {
+    const win = getWindow(event);
+    const result = await dialog.showOpenDialog(win ?? undefined!, {
+      title: "Anexar pasta",
+      properties: ["openDirectory"],
+    });
+    if (result.canceled || result.filePaths.length === 0) {
+      return { canceled: true as const, folder: null };
+    }
+    const p = result.filePaths[0];
+    if (!p) return { canceled: true as const, folder: null };
+    return {
+      canceled: false as const,
+      folder: { path: p, name: path.basename(p) },
+    };
+  });
+
   // Inicia sessão
   ipcMain.handle("agent:start", async (_event, sessionId: string) => {
     if (typeof sessionId !== "string" || !sessionId) {
