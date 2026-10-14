@@ -41,6 +41,7 @@ import kairosWebTools from "@kairos/extension-web-tools";
 import kairosTravel from "@kairos/extension-travel";
 import kairosContext, { getCompressedHistory } from "@kairos/extension-context";
 import kairosMemory, { listAll as listMemory } from "@kairos/extension-memory";
+import kairosCRM, { listContacts as listCRM, countContacts as countCRM } from "@kairos/extension-crm";
 import { openDatabase, ConversationStore, logger, type KairósDB } from "@kairos/core";
 
 interface AgentEntry {
@@ -124,6 +125,7 @@ export async function getAgent(sessionId: string): Promise<Agent> {
       "kairos-travel",
       "kairos-context",
       "kairos-memory",
+      "kairos-crm",
     ],
     locale: "pt-BR",
   });
@@ -145,6 +147,7 @@ export async function getAgent(sessionId: string): Promise<Agent> {
   registerExtension(agent.tools, kairosTravel);
   registerExtension(agent.tools, kairosContext);
   registerExtension(agent.tools, kairosMemory);
+  registerExtension(agent.tools, kairosCRM);
 
   registerExtension(agent.tools, kairosPiBridge);
 
@@ -221,6 +224,28 @@ export async function* handleUserMessage(
       }
     } catch (err) {
       logger.warn({ err: String(err) }, "memory: auto-recall falhou");
+    }
+
+    // === AUTO-INJECT: top 30 contatos do CRM (por nome, ordem alfabética) ===
+    try {
+      const totalCrm = countCRM();
+      if (totalCrm > 0) {
+        const contacts = listCRM({ limit: 30 });
+        const crmBlock = contacts
+          .map((c) => {
+            const parts = [`- **${c.name}** [${c.type}]`];
+            if (c.company) parts.push(`empresa: ${c.company}`);
+            if (c.email) parts.push(`email: ${c.email}`);
+            if (c.phone) parts.push(`tel: ${c.phone}`);
+            return parts.join(" · ");
+          })
+          .join("\n");
+        const crmContext = `[Base de contatos do CRM — ${totalCrm} cadastrados]\n${crmBlock}\n\nUse crm_get_contact(id) pra detalhes + histórico. Use crm_update_contact(id, {markContactedNow: true}) pra registrar contatos recentes.`;
+        history.unshift({ role: "assistant", content: crmContext });
+        logger.info({ count: contacts.length, total: totalCrm }, "crm: auto-injetado no contexto");
+      }
+    } catch (err) {
+      logger.warn({ err: String(err) }, "crm: auto-inject falhou");
     }
   } catch (err) {
     logger.warn({ err: String(err) }, "history: compressão falhou, usando fallback");
