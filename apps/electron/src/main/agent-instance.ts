@@ -42,6 +42,7 @@ import kairosTravel from "@kairos/extension-travel";
 import kairosContext, { getCompressedHistory } from "@kairos/extension-context";
 import kairosMemory, { listAll as listMemory } from "@kairos/extension-memory";
 import kairosCRM, { listContacts as listCRM, countContacts as countCRM } from "@kairos/extension-crm";
+import kairosMCP from "@kairos/extension-mcp";
 import { openDatabase, ConversationStore, logger, type KairósDB } from "@kairos/core";
 
 interface AgentEntry {
@@ -126,6 +127,7 @@ export async function getAgent(sessionId: string): Promise<Agent> {
       "kairos-context",
       "kairos-memory",
       "kairos-crm",
+      "kairos-mcp",
     ],
     locale: "pt-BR",
   });
@@ -148,6 +150,7 @@ export async function getAgent(sessionId: string): Promise<Agent> {
   registerExtension(agent.tools, kairosContext);
   registerExtension(agent.tools, kairosMemory);
   registerExtension(agent.tools, kairosCRM);
+  registerExtension(agent.tools, kairosMCP);
 
   registerExtension(agent.tools, kairosPiBridge);
 

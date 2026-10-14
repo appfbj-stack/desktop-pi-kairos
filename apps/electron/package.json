@@ -99,6 +99,7 @@
     "@kairos/extension-context": "workspace:*",
     "@kairos/extension-memory": "workspace:*",
     "@kairos/extension-crm": "workspace:*",
+    "@kairos/extension-mcp": "workspace:*",
     "@kairos/extension-agenda": "workspace:*",
     "electron-updater": "^6.3.9",
     "highlight.js": "^11.12.0",
