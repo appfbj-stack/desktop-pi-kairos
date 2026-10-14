@@ -44,6 +44,7 @@ import kairosMemory, { listAll as listMemory } from "@kairos/extension-memory";
 import kairosCRM, { listContacts as listCRM, countContacts as countCRM } from "@kairos/extension-crm";
 import kairosMCP from "@kairos/extension-mcp";
 import kairosLocalAI from "@kairos/extension-local-ai";
+import kairosIndexer from "@kairos/extension-indexer";
 import { openDatabase, ConversationStore, logger, type KairósDB } from "@kairos/core";
 
 interface AgentEntry {
@@ -130,6 +131,7 @@ export async function getAgent(sessionId: string): Promise<Agent> {
       "kairos-crm",
       "kairos-mcp",
       "kairos-local-ai",
+      "kairos-indexer",
     ],
     locale: "pt-BR",
   });
@@ -154,6 +156,7 @@ export async function getAgent(sessionId: string): Promise<Agent> {
   registerExtension(agent.tools, kairosCRM);
   registerExtension(agent.tools, kairosMCP);
   registerExtension(agent.tools, kairosLocalAI);
+  registerExtension(agent.tools, kairosIndexer);
 
   registerExtension(agent.tools, kairosPiBridge);
 

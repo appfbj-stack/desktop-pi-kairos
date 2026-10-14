@@ -101,6 +101,7 @@
     "@kairos/extension-crm": "workspace:*",
     "@kairos/extension-mcp": "workspace:*",
     "@kairos/extension-local-ai": "workspace:*",
+    "@kairos/extension-indexer": "workspace:*",
     "@kairos/extension-agenda": "workspace:*",
     "electron-updater": "^6.3.9",
     "highlight.js": "^11.12.0",

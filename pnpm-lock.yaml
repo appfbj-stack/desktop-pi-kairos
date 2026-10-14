@@ -47,6 +47,9 @@ importers:
       '@kairos/extension-context':
         specifier: workspace:*
         version: link:../../packages/extensions/kairos-context
+      '@kairos/extension-crm':
+        specifier: workspace:*
+        version: link:../../packages/extensions/kairos-crm
       '@kairos/extension-documents':
         specifier: workspace:*
         version: link:../../packages/extensions/kairos-documents
@@ -59,12 +62,24 @@ importers:
       '@kairos/extension-images':
         specifier: workspace:*
         version: link:../../packages/extensions/kairos-images
+      '@kairos/extension-indexer':
+        specifier: workspace:*
+        version: link:../../packages/extensions/kairos-indexer
       '@kairos/extension-intelligence':
         specifier: workspace:*
         version: link:../../packages/extensions/kairos-intelligence
+      '@kairos/extension-local-ai':
+        specifier: workspace:*
+        version: link:../../packages/extensions/kairos-local-ai
       '@kairos/extension-marketing':
         specifier: workspace:*
         version: link:../../packages/extensions/kairos-marketing
+      '@kairos/extension-mcp':
+        specifier: workspace:*
+        version: link:../../packages/extensions/kairos-mcp
+      '@kairos/extension-memory':
+        specifier: workspace:*
+        version: link:../../packages/extensions/kairos-memory
       '@kairos/extension-ocr':
         specifier: workspace:*
         version: link:../../packages/extensions/kairos-ocr
@@ -315,6 +330,31 @@ importers:
         specifier: ^5.7.2
         version: 5.9.3
 
+  packages/extensions/kairos-crm:
+    dependencies:
+      '@kairos/agent':
+        specifier: workspace:*
+        version: link:../../agent
+      '@kairos/core':
+        specifier: workspace:*
+        version: link:../../core
+      better-sqlite3:
+        specifier: ^11.7.0
+        version: 11.10.0
+      zod:
+        specifier: ^3.24.1
+        version: 3.25.76
+    devDependencies:
+      '@types/better-sqlite3':
+        specifier: ^7.6.12
+        version: 7.6.13
+      '@types/node':
+        specifier: ^22.10.0
+        version: 22.20.1
+      typescript:
+        specifier: ^5.7.2
+        version: 5.9.3
+
   packages/extensions/kairos-documents:
     dependencies:
       '@kairos/agent':
@@ -397,11 +437,61 @@ importers:
         specifier: ^5.7.2
         version: 5.9.3
 
+  packages/extensions/kairos-indexer:
+    dependencies:
+      '@kairos/agent':
+        specifier: workspace:*
+        version: link:../../agent
+      '@kairos/core':
+        specifier: workspace:*
+        version: link:../../core
+      better-sqlite3:
+        specifier: ^11.7.0
+        version: 11.10.0
+      zod:
+        specifier: ^3.24.1
+        version: 3.25.76
+    devDependencies:
+      '@types/better-sqlite3':
+        specifier: ^7.6.12
+        version: 7.6.13
+      '@types/node':
+        specifier: ^22.10.0
+        version: 22.20.1
+      typescript:
+        specifier: ^5.7.2
+        version: 5.9.3
+
   packages/extensions/kairos-intelligence:
     dependencies:
       '@kairos/agent':
         specifier: workspace:*
         version: link:../../agent
+      better-sqlite3:
+        specifier: ^11.7.0
+        version: 11.10.0
+      zod:
+        specifier: ^3.24.1
+        version: 3.25.76
+    devDependencies:
+      '@types/better-sqlite3':
+        specifier: ^7.6.12
+        version: 7.6.13
+      '@types/node':
+        specifier: ^22.10.0
+        version: 22.20.1
+      typescript:
+        specifier: ^5.7.2
+        version: 5.9.3
+
+  packages/extensions/kairos-local-ai:
+    dependencies:
+      '@kairos/agent':
+        specifier: workspace:*
+        version: link:../../agent
+      '@kairos/core':
+        specifier: workspace:*
+        version: link:../../core
       better-sqlite3:
         specifier: ^11.7.0
         version: 11.10.0
@@ -431,6 +521,50 @@ importers:
         specifier: ^3.24.1
         version: 3.25.76
     devDependencies:
+      '@types/node':
+        specifier: ^22.10.0
+        version: 22.20.1
+      typescript:
+        specifier: ^5.7.2
+        version: 5.9.3
+
+  packages/extensions/kairos-mcp:
+    dependencies:
+      '@kairos/agent':
+        specifier: workspace:*
+        version: link:../../agent
+      '@kairos/core':
+        specifier: workspace:*
+        version: link:../../core
+      zod:
+        specifier: ^3.24.1
+        version: 3.25.76
+    devDependencies:
+      '@types/node':
+        specifier: ^22.10.0
+        version: 22.20.1
+      typescript:
+        specifier: ^5.7.2
+        version: 5.9.3
+
+  packages/extensions/kairos-memory:
+    dependencies:
+      '@kairos/agent':
+        specifier: workspace:*
+        version: link:../../agent
+      '@kairos/core':
+        specifier: workspace:*
+        version: link:../../core
+      better-sqlite3:
+        specifier: ^11.7.0
+        version: 11.10.0
+      zod:
+        specifier: ^3.24.1
+        version: 3.25.76
+    devDependencies:
+      '@types/better-sqlite3':
+        specifier: ^7.6.12
+        version: 7.6.13
       '@types/node':
         specifier: ^22.10.0
         version: 22.20.1
