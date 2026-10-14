@@ -96,6 +96,7 @@
     "@kairos/extension-video": "workspace:*",
     "@kairos/extension-web-tools": "workspace:*",
     "@kairos/extension-travel": "workspace:*",
+    "@kairos/extension-context": "workspace:*",
     "@kairos/extension-agenda": "workspace:*",
     "electron-updater": "^6.3.9",
     "highlight.js": "^11.12.0",

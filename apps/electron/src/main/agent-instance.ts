@@ -39,6 +39,7 @@ import kairosMarketing from "@kairos/extension-marketing";
 import kairosPiBridge, { getPiTools, applyPiTools } from "@kairos/extension-pi-bridge";
 import kairosWebTools from "@kairos/extension-web-tools";
 import kairosTravel from "@kairos/extension-travel";
+import kairosContext, { getCompressedHistory } from "@kairos/extension-context";
 import { openDatabase, ConversationStore, logger, type KairósDB } from "@kairos/core";
 
 interface AgentEntry {
@@ -120,6 +121,7 @@ export async function getAgent(sessionId: string): Promise<Agent> {
       "kairos-pi-bridge",
       "kairos-web-tools",
       "kairos-travel",
+      "kairos-context",
     ],
     locale: "pt-BR",
   });
@@ -139,6 +141,7 @@ export async function getAgent(sessionId: string): Promise<Agent> {
   registerExtension(agent.tools, kairosMarketing);
   registerExtension(agent.tools, kairosWebTools);
   registerExtension(agent.tools, kairosTravel);
+  registerExtension(agent.tools, kairosContext);
 
   registerExtension(agent.tools, kairosPiBridge);
 
@@ -177,8 +180,34 @@ export async function* handleUserMessage(
   // Persiste mensagem do user
   store.addMessage(sessionId, "user", userMessage, { attachments });
 
-  // Carrega histórico e processa
-  const history = store.listChatHistory(sessionId).slice(0, -1); // -1 = última (a que acabamos de salvar)
+  // Carrega histórico COM COMPRESSÃO (kairos-context extension).
+  // Mantém as últimas 20 mensagens completas e usa sumário pras antigas.
+  let history: { role: "user" | "assistant"; content: string }[];
+  try {
+    const storeRef = getStore();
+    const db = (storeRef as any).raw ?? (storeRef as any).db?.raw;
+    // expõe globals pras tools da extension (compress_history/context_stats)
+    (globalThis as any).__kairosDb = db;
+    (globalThis as any).__kairosConversationId = sessionId;
+    (globalThis as any).__kairosProviderConfig = provider;
+
+    const compressed = getCompressedHistory(db, sessionId, { keepRecent: 20, maxTokens: 8000 });
+    if (compressed.summary) {
+      history = [
+        { role: "assistant", content: `[Resumo de mensagens anteriores]\n${compressed.summary}` },
+        ...compressed.recent,
+      ];
+      logger.info(
+        { sessionId, compressed: compressed.compressedCount, recent: compressed.recentCount, tokens: compressed.estimatedTokens },
+        "history: usando versão comprimida",
+      );
+    } else {
+      history = compressed.recent.slice(0, -1); // -1 = última (a que acabamos de salvar)
+    }
+  } catch (err) {
+    logger.warn({ err: String(err) }, "history: compressão falhou, usando fallback");
+    history = store.listChatHistory(sessionId).slice(0, -1);
+  }
 
   // Buffer de mensagens assistant pendentes pra salvar junto
   let assistantText = "";
