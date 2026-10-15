@@ -12,8 +12,10 @@ import { basename, extname } from "node:path";
 import { logger } from "@kairos/core";
 
 export interface MultimodalAttachment {
-  /** Path absoluto do arquivo. */
-  path: string;
+  /** Path absoluto do arquivo (lê do disco se informado). */
+  path?: string;
+  /** Conteúdo pré-built (data URL ou texto cru) — pula leitura do disco. */
+  data?: string;
   /** Nome original (pra display). */
   name?: string;
   /** Size em bytes (opcional — calculado se faltar). */
@@ -22,7 +24,6 @@ export interface MultimodalAttachment {
   mimeType?: string;
 }
 
-/** Mapa simples de extensão → MIME. Sem dep externa. */
 const EXT_TO_MIME: Record<string, string> = {
   ".png": "image/png",
   ".jpg": "image/jpeg",
@@ -35,19 +36,18 @@ const EXT_TO_MIME: Record<string, string> = {
 
 const IMAGE_EXTS = new Set([".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp"]);
 
-/** Limites de proteção. */
-const MAX_IMAGE_BYTES = 20 * 1024 * 1024;   // 20MB
-const MAX_TOTAL_BYTES = 50 * 1024 * 1024;   // 50MB total por msg
+const MAX_IMAGE_BYTES = 20 * 1024 * 1024;
+const MAX_TOTAL_BYTES = 50 * 1024 * 1024;
 const MAX_IMAGES = 8;
 
-function detectMime(path: string, provided?: string): string {
+function detectMime(p: string, provided?: string): string {
   if (provided) return provided;
-  const ext = extname(path).toLowerCase();
+  const ext = extname(p).toLowerCase();
   return EXT_TO_MIME[ext] ?? "application/octet-stream";
 }
 
-function isImage(path: string, mimeType: string): boolean {
-  return IMAGE_EXTS.has(extname(path).toLowerCase()) || mimeType.startsWith("image/");
+function isImage(p: string, mimeType: string): boolean {
+  return IMAGE_EXTS.has(extname(p).toLowerCase()) || mimeType.startsWith("image/");
 }
 
 export interface ContentBlock {
@@ -58,7 +58,7 @@ export interface ContentBlock {
 
 /**
  * Monta o array de content blocks OpenAI-compatible.
- * Lê cada imagem do disco, base64-ifica, e injeta como image_url.
+ * Anexos podem vir por path (lê do disco) ou com data pré-built (data URL do IPC).
  */
 export async function buildMultimodalContent(
   text: string,
@@ -79,11 +79,11 @@ export async function buildMultimodalContent(
   let skipped = 0;
 
   for (const att of attachments) {
-    const mimeType = detectMime(att.path, att.mimeType);
-    const displayName = att.name ?? basename(att.path);
+    const mimeType = detectMime(att.path ?? "", att.mimeType);
+    const displayName = att.name ?? (att.path ? basename(att.path) : "anexo");
 
     let size = att.size ?? 0;
-    if (!size) {
+    if (!size && att.path) {
       try {
         const st = await stat(att.path);
         size = st.size;
@@ -94,7 +94,8 @@ export async function buildMultimodalContent(
       }
     }
 
-    if (!isImage(att.path, mimeType)) {
+    // Não-imagem: injeta referência textual pro LLM usar tool files:read
+    if (!att.data && !isImage(att.path ?? "", mimeType)) {
       blocks.push({
         type: "text",
         text: `\n[anexo: ${displayName} (${(size / 1024).toFixed(1)}KB, ${mimeType}) em ${att.path}]`,
@@ -117,23 +118,37 @@ export async function buildMultimodalContent(
       logger.warn({ totalBytes, size, max: MAX_TOTAL_BYTES }, "budget de bytes estourou — parando");
       blocks.push({
         type: "text",
-        text: `\n[anexos restantes ignorados — orçamento de ${MAX_TOTAL_BYTES / 1024 / 1024}MB por mensagem atingido]`,
+        text: `\n[anexos restantes ignorados — orçamento de ${MAX_TOTAL_BYTES / 1024 / 1024}MB atingido]`,
       });
       skipped++;
       break;
     }
 
     try {
-      const buf = await readFile(att.path);
-      const base64 = buf.toString("base64");
-      const dataUrl = `data:${mimeType};base64,${base64}`;
+      let dataUrl: string;
+      if (att.data) {
+        if (att.data.startsWith("data:")) {
+          dataUrl = att.data;
+        } else {
+          const b64 = Buffer.from(att.data, "utf-8").toString("base64");
+          dataUrl = `data:${mimeType};base64,${b64}`;
+        }
+      } else if (att.path) {
+        const buf = await readFile(att.path);
+        const base64 = buf.toString("base64");
+        dataUrl = `data:${mimeType};base64,${base64}`;
+      } else {
+        logger.warn({ displayName }, "anexo sem path nem data — pulando");
+        skipped++;
+        continue;
+      }
       blocks.push({
         type: "image_url",
         image_url: { url: dataUrl, detail: "auto" },
       });
       totalBytes += size;
       kept++;
-      logger.info({ path: att.path, size, mimeType }, "imagem anexada ao prompt");
+      logger.info({ path: att.path || "(data)", size, mimeType }, "imagem anexada ao prompt");
     } catch (e) {
       logger.warn({ path: att.path, err: String(e) }, "falha lendo imagem");
       skipped++;
