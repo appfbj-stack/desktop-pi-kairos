@@ -33,7 +33,9 @@
       "esbuild",
       "@google/genai",
       "ffmpeg-static",
-      "protobufjs"
+      "protobufjs",
+      "sharp",
+      "@electron/rebuild"
     ]
   },
   "devDependencies": {
