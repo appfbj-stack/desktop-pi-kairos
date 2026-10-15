@@ -32,6 +32,12 @@ export interface LicenseStatus {
   renewUrl: string;
   source: "server" | "cache" | "local-fallback";
   cachedAt?: number;
+  // Sprint 2026-10-15
+  tokensLimit: number;
+  tokensUsed: number;
+  tokensRemaining: number;
+  outputTokenCap: number;
+  periodType: "DAILY" | "MONTHLY";
 }
 
 interface CachedStatus {
@@ -72,6 +78,11 @@ interface CheckUsageResponse {
   reason: string | null;
   currentPeriodEnd: string | null;
   renewUrl: string;
+  tokensLimit?: number;
+  tokensUsed?: number;
+  tokensRemaining?: number;
+  outputTokenCap?: number;
+  periodType?: "DAILY" | "MONTHLY";
 }
 
 /**
@@ -110,6 +121,11 @@ export async function checkUsage(installationId: string): Promise<LicenseStatus>
       reason: data.reason,
       currentPeriodEnd: data.currentPeriodEnd,
       renewUrl: data.renewUrl,
+      tokensLimit: data.tokensLimit ?? 30000,
+      tokensUsed: data.tokensUsed ?? 0,
+      tokensRemaining: data.tokensRemaining ?? 30000,
+      outputTokenCap: data.outputTokenCap ?? 500,
+      periodType: data.periodType ?? "DAILY",
       source: "server",
     };
 
@@ -145,6 +161,11 @@ export async function checkUsage(installationId: string): Promise<LicenseStatus>
       reason: `Sem conexão: ${String(e)}`,
       currentPeriodEnd: null,
       renewUrl: `${CENTRAL_BASE}`,
+      tokensLimit: 999999,
+      tokensUsed: 0,
+      tokensRemaining: 999999,
+      outputTokenCap: 4000,
+      periodType: "MONTHLY",
       source: "local-fallback",
     };
   }
@@ -171,6 +192,11 @@ export async function getLicenseStatus(installationId: string): Promise<LicenseS
       usageUsed: number;
       remaining: number;
       currentPeriodEnd: string | null;
+      tokensLimit?: number;
+      tokensUsed?: number;
+      tokensRemaining?: number;
+      outputTokenCap?: number;
+      periodType?: "DAILY" | "MONTHLY";
     };
 
     return {
@@ -183,6 +209,11 @@ export async function getLicenseStatus(installationId: string): Promise<LicenseS
       reason: null,
       currentPeriodEnd: data.currentPeriodEnd,
       renewUrl: `${CENTRAL_BASE}`,
+      tokensLimit: data.tokensLimit ?? 30000,
+      tokensUsed: data.tokensUsed ?? 0,
+      tokensRemaining: data.tokensRemaining ?? 30000,
+      outputTokenCap: data.outputTokenCap ?? 500,
+      periodType: data.periodType ?? "DAILY",
       source: "server",
     };
   } catch (e) {
@@ -200,6 +231,11 @@ export async function getLicenseStatus(installationId: string): Promise<LicenseS
       reason: `Sem conexão: ${String(e)}`,
       currentPeriodEnd: null,
       renewUrl: `${CENTRAL_BASE}`,
+      tokensLimit: 999999,
+      tokensUsed: 0,
+      tokensRemaining: 999999,
+      outputTokenCap: 4000,
+      periodType: "MONTHLY",
       source: "local-fallback",
     };
   }

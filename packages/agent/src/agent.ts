@@ -40,6 +40,7 @@ export class Agent {
     userMessage: string,
     options: {
       initialMessages?: { role: "user" | "assistant"; content: string }[];
+      attachments?: import("./llm/multimodal.js").MultimodalAttachment[];
     } = {}
   ): AsyncIterable<AgentEvent> {
     // Reseta estado de abort pra novo turno (Sprint 1.8).

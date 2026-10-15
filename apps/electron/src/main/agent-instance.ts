@@ -187,7 +187,7 @@ export function loadHistory(sessionId: string): { role: "user" | "assistant"; co
 export async function* handleUserMessage(
   sessionId: string,
   userMessage: string,
-  attachments: { name: string; size: number; type: "text" | "image"; mime: string }[] = []
+  attachments: { name: string; size: number; type: "text" | "image"; mime: string; content?: string }[] = []
 ): AsyncIterable<AgentEvent> {
   const a = await getAgent(sessionId);
   const store = getStore();
@@ -279,11 +279,21 @@ export async function* handleUserMessage(
   // Buffer de mensagens assistant pendentes pra salvar junto
   let assistantText = "";
   const toolMessages: { role: "tool"; content: string; toolName: string }[] = [];
-  const userMsgForLlm = attachments.length > 0
-    ? `${userMessage}\n\n[${attachments.length} anexo(s): ${attachments.map((a) => `${a.name} (${a.type})`).join(", ")}]`
-    : userMessage;
 
-  for await (const ev of a.handle(userMsgForLlm, { initialMessages: history })) {
+  // Converte attachments do formato IPC (data URL) pro formato multimodal (Sprint 2026-10-15)
+  const multimodalAttachments = attachments
+    .filter((a) => a.type === "image")
+    .map((a) => ({
+      name: a.name,
+      size: a.size,
+      mimeType: a.mime,
+      data: a.content, // já é "data:image/...;base64,..."
+    }));
+
+  for await (const ev of a.handle(userMessage, {
+    initialMessages: history,
+    attachments: multimodalAttachments,
+  })) {
     // Acumula texto do assistant e tools
     switch (ev.type) {
       case "message":

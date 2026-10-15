@@ -30,6 +30,7 @@ import type { AgentEvent } from "../types.js";
 import type { Tool as KairosTool } from "../tools/registry.js";
 import { zodToTypebox } from "./zod-to-typebox.js";
 import { buildModel, resolveApiKey, type ProviderConfig } from "./provider.js";
+import { buildMultimodalContent, type MultimodalAttachment } from "./multimodal.js";
 
 const DEFAULT_MAX_TOOL_ITERATIONS = 25;
 
@@ -41,6 +42,7 @@ export async function* runLlmLoop(
     systemPrompt?: string;
     provider: ProviderConfig;
     initialMessages?: { role: "user" | "assistant"; content: string }[];
+    attachments?: MultimodalAttachment[];
   } = {
     provider: { provider: "openrouter", modelId: "anthropic/claude-3.5-sonnet" },
   }
@@ -83,9 +85,10 @@ export async function* runLlmLoop(
     }
   }
 
+  const userContent = await buildMultimodalContent(userMessage, options.attachments);
   const userMsg: UserMessage = {
     role: "user",
-    content: userMessage,
+    content: userContent as any,
     timestamp: Date.now(),
   };
   messages.push(userMsg);

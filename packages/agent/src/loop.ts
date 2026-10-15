@@ -10,16 +10,19 @@
 import type { Agent } from "./agent.js";
 import type { AgentEvent } from "./types.js";
 import { runLlmLoop } from "./llm/index.js";
+import type { MultimodalAttachment } from "./llm/multimodal.js";
 
 export async function* runAgentLoop(
   agent: Agent,
   userMessage: string,
   options: {
     initialMessages?: { role: "user" | "assistant"; content: string }[];
+    attachments?: MultimodalAttachment[];
   } = {}
 ): AsyncIterable<AgentEvent> {
   yield* runLlmLoop(agent, userMessage, {
     provider: agent.config.provider,
     initialMessages: options.initialMessages,
+    attachments: options.attachments,
   });
 }
