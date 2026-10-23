@@ -6,6 +6,22 @@ Extension: `packages/extensions/kairos-videos` · 6 tools · integrada ao Kairó
 
 ---
 
+## 0. Teste rápido (2 minutos)
+
+O app já está instalado e com as 6 tools ativas.
+
+1. Abre o **Kairós Desktop Alves** (atalho na Desktop).
+2. No chat, pede: *"cria um projeto de vídeo chamado teste-kairos"*
+   → a tool `videos:project` cria as 6 pastas em `C:\Users\ferna\Videos\KAIROS_VIDEOS\`.
+3. Pede: *"lista as vozes em português"* → a tool `videos:voice` devolve as 73 vozes PT-BR.
+4. Pede: *"gera um vídeo de 30s sobre o painel de conversas do Kairós CRM"*
+   → `videos:script` devolve o roteiro.
+
+Se o app não abrir ou der `no such column: client_id`, o banco local precisa da
+migração — o app já faz isso sozinho na próxima abertura (ver §6).
+
+---
+
 ## 1. Pré-requisitos
 
 | Item | Status | Observação |
@@ -159,6 +175,7 @@ temporário. Conecte o HD e rode o export de novo.
 
 | Sintoma | Causa | Solução |
 |---|---|---|
+| App não abre: `SqliteError: no such column: client_id` | banco local criado antes do multi-tenant; o índice era criado **antes** do `ALTER TABLE` | **Já resolvido** — a ordem agora é tabelas → migrations → índices. Se persistir, o app migra sozinho na próxima abertura |
 | Roteiro sai vazio | `maxTokens` cortou o raciocínio do modelo thinking | Já resolvido (3000 tokens). Se persistir, use `MiniMax-M2.7-highspeed` |
 | Narração sai com o rascunho do modelo | MiniMax M3 é "thinking model" | Já resolvido — o bloco `<think>` é removido automaticamente |
 | ffmpeg: *"Error initializing a simple filtergraph"* | path do `.ass` sem escape no Windows | Já resolvido — a extension escapa o path automaticamente |
@@ -198,3 +215,31 @@ pnpm --filter @kairos/electron typecheck
 > ⚠️ Se o typecheck do app reclamar de `attachments` não existir no tipo,
 > é porque o `dist` do `@kairos/agent` está desatualizado — rode
 > `pnpm --filter @kairos/agent build`.
+
+### Empacotamento (instalador .exe)
+
+```bash
+pnpm --filter @kairos/core build          # dist do core
+pnpm --filter @kairos/extension-videos build
+pnpm --filter @kairos/electron build:preload
+pnpm --filter @kairos/electron build:renderer
+pnpm --filter @kairos/electron build:main
+pnpm --filter @kairos/electron vendor      # copia as extensions p/ _vendor
+pnpm --filter @kairos/electron deploy --legacy --prod ./_deployed
+cd apps/electron && pnpm exec electron-builder --win --project ./_deployed
+```
+
+**Armadilhas do empacotamento (todas resolvidas no `apps/electron/package.json`):**
+
+| Erro | Causa | Correção aplicada |
+|---|---|---|
+| `Cannot compute electron version` | o deploy com `--prod` não traz o pacote `electron` | `electronVersion: "33.4.11"` fixado no build config |
+| `ENOENT ... @emnapi\runtime` | `@electron/rebuild` tropeça num junction pnpm pendurado | `npmRebuild: false` — o `better-sqlite3` já é compilado para o ABI do Electron |
+| `Cannot find module 'electron-publisher-./build/publish.json'` | o `publish` apontava pra um arquivo inexistente | `publish` com provider `github` (`appfbj-stack/desktop-pi-kairos`) |
+| `ERR_PNPM_DEPLOY_DIR_NOT_EMPTY` | o `pnpm deploy` exige pasta de destino vazia | mover a pasta antiga (`_deployed.bak-<data>`) antes do deploy |
+| `electron-builder não é reconhecido` | dentro do `_deployed` não há `electron-builder` | rodar de `apps/electron` com `--project ./_deployed` |
+
+> A `extension-videos` só entra no instalador se estiver na lista do
+> `apps/electron/build/copy-vendor.mjs` — sem isso ela funciona no dev
+> e desaparece no app empacotado.
+
