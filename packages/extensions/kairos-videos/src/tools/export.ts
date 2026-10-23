@@ -72,6 +72,15 @@ export const videosExportTool: Tool<typeof inputSchema> = {
     const resolved = resolveExportTarget(input.destination);
     const cfg = loadVideosConfig();
 
+    if (resolved.autoDetected) {
+      warnings.push(`HD externo detectado automaticamente: ${resolved.target}`);
+    }
+    if (!resolved.external) {
+      warnings.push(
+        "Nenhum HD externo conectado — exportei na pasta local. Conecte o HD e rode o export de novo para copiar para lá.",
+      );
+    }
+
     if (resolved.external && !resolved.available) {
       // HD externo ausente: NÃO apaga, NÃO move. Só avisa.
       warnings.push(

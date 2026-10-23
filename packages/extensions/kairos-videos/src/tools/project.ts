@@ -13,6 +13,7 @@ import fs from "node:fs";
 import path from "node:path";
 import {
   ALL_STAGE_DIRS,
+  detectExternalRoot,
   ensureProjectStructure,
   getVideosRoot,
   loadVideosConfig,
@@ -39,6 +40,10 @@ export interface ProjectResult {
   root: string;
   folders: Record<string, string>;
   created: boolean;
+  /** HD externo configurado manualmente no videos-config.json (se houver). */
+  externalRoot: string | null;
+  /** HD externo detectado automaticamente agora (se houver algum montado). */
+  detectedExternalRoot: string | null;
 }
 
 export const videosProjectTool: Tool<typeof inputSchema> = {
@@ -78,6 +83,7 @@ export const videosProjectTool: Tool<typeof inputSchema> = {
       folders,
       created,
       externalRoot: cfg.externalRoot,
+      detectedExternalRoot: detectExternalRoot(),
     } as ProjectResult;
   },
 };

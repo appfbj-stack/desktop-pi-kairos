@@ -132,24 +132,74 @@ export function stagePath(stage: StageKey, root = getVideosRoot()): string {
 }
 
 /**
+ * Descobre um HD externo montado, sem precisar saber a letra.
+ *
+ * Heurística: qualquer volume além de C: com espaço livre é candidato a HD
+ * externo. Entre vários, vence o com mais espaço. HD desconectado simplesmente
+ * não aparece — e o export mantém o comportamento seguro (não apaga nada).
+ */
+export function detectExternalRoot(minFreeGb = 2): string | null {
+  const systemRoot = path.parse(process.cwd()).root.toUpperCase(); // "C:\"
+  const candidates: { root: string; free: number }[] = [];
+
+  for (const letter of "DEFGHIJKLMNOPQRSTUVWXYZ") {
+    const root = `${letter}:\\`;
+    if (root.toUpperCase() === systemRoot) continue;
+    try {
+      if (!fs.existsSync(root)) continue;
+      const stat = fs.statSync(root);
+      if (!stat.isDirectory()) continue;
+      // Espaço livre via fs.statfs (disponível no Node 18.15+).
+      let free = 0;
+      try {
+        const st = fs.statfsSync(root);
+        free = (st.bavail * st.bsize) / (1024 * 1024 * 1024);
+      } catch {
+        free = 0;
+      }
+      if (free < minFreeGb) continue;
+      candidates.push({ root, free });
+    } catch {
+      /* ignora letra inacessível */
+    }
+  }
+
+  if (!candidates.length) return null;
+  candidates.sort((a, b) => b.free - a.free);
+  return candidates[0]?.root ?? null;
+}
+
+/**
  * Resolve o destino final do export.
+ *
+ * Ordem de preferência:
+ *   1. raiz pedida na chamada
+ *   2. `externalRoot` do videos-config.json
+ *   3. HD externo detectado automaticamente
+ *   4. raiz local (sem HD — o export segue seguro e não apaga nada)
  *
  * Regra de segurança: se o HD externo não estiver montado, o export NÃO apaga
  * nem move o arquivo original — apenas avisa e devolve o caminho temporário.
  */
 export function resolveExportTarget(
   requestedRoot: string | null | undefined,
-): { target: string; external: boolean; available: boolean } {
+): { target: string; external: boolean; available: boolean; autoDetected: boolean } {
   const cfg = loadVideosConfig();
-  const candidate = (requestedRoot?.trim() || cfg.externalRoot || "").trim();
+  const explicit = (requestedRoot?.trim() || cfg.externalRoot || "").trim();
 
-  if (!candidate) {
-    return { target: cfg.root, external: false, available: true };
+  if (explicit) {
+    const resolved = path.resolve(explicit);
+    const available = fs.existsSync(resolved) && fs.statSync(resolved).isDirectory();
+    return { target: resolved, external: true, available, autoDetected: false };
   }
 
-  const resolved = path.resolve(candidate);
-  const available = fs.existsSync(resolved) && fs.statSync(resolved).isDirectory();
-  return { target: resolved, external: true, available };
+  // Sem configuração: tenta achar o HD externo sozinho.
+  const detected = detectExternalRoot();
+  if (detected) {
+    return { target: detected, external: true, available: true, autoDetected: true };
+  }
+
+  return { target: cfg.root, external: false, available: true, autoDetected: false };
 }
 
 /** Sanitiza um nome de arquivo/pasta (remove caracteres proibidos no Windows). */

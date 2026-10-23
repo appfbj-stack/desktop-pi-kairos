@@ -63,7 +63,9 @@ KAIROS_VIDEOS/
 
 - Raiz dos vídeos: env `KAIROS_VIDEOS_ROOT` > global `__kairosVideosRoot` >
   `<user>\Videos\KAIROS_VIDEOS`
-- HD externo de export: `videos-config.json` na raiz (`externalRoot`)
+- HD externo de export: **detectado automaticamente** (qualquer volume além de
+  `C:` com espaço livre) > `videos-config.json` (`externalRoot`) — o
+  `externalRoot` configurado tem prioridade sobre a detecção
 - Voz preferida: `videos-config.json` (`preferredVoiceId`)
 - yt-dlp: env `YTDLP_PATH` > `yt-dlp` no PATH > instalações do Python
   (`%LOCALAPPDATA%\Programs\Python\Python*\Scripts\yt-dlp.exe`)
@@ -80,7 +82,8 @@ KAIROS_VIDEOS/
 4. **Nada é publicado automaticamente.** A publicação depende de aprovação
    explícita do Pastor e não existe tool de publicação nesta extension.
 5. **Se o HD externo estiver desconectado, nada é apagado.** O `videos:export`
-   mantém o original e avisa.
+   mantém o original e avisa. Quando o HD está conectado, a letra é detectada
+   sozinha — não precisa configurar nada.
 6. **Download baixa pelo ID, não pelo título.** Título com quebra de linha faz o
    yt-dlp imprimir o path com `\r` e o arquivo em disco fica com outro nome.
    O `videos:source` baixa como `kairos_src_<id>.<ext>` e renomeia depois, no

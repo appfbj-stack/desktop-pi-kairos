@@ -168,12 +168,20 @@ Para promover um arquivo já aprovado:
 
 ## 4. Configuração do HD externo
 
-**Opção 1 — por variável de ambiente** (mais simples):
+**Não precisa saber a letra do HD.** O `videos:export` procura sozinho qualquer
+volume montado além de `C:` e usa o que tiver mais espaço livre. Quando não há
+nenhum HD conectado, ele exporta na pasta local e avisa.
+
+**Opção 1 — automático (padrão, recomendado):**
+Nada a fazer. Conecte o HD e peça *"exporta o vídeo"*. A tool responde com o
+caminho detectado (ex.: `Exportado para D:\02_APROVADOS\...`).
+
+**Opção 2 — fixar um HD específico (env de variável, mais simples):**
 ```
 KAIROS_VIDEOS_ROOT=E:\KAIROS_VIDEOS
 ```
 
-**Opção 2 — pelo arquivo `videos-config.json`** (na raiz do KAIROS_VIDEOS):
+**Opção 3 — pelo arquivo `videos-config.json`** (na raiz do KAIROS_VIDEOS):
 ```json
 {
   "root": "C:\\Users\\ferna\\Videos\\KAIROS_VIDEOS",
@@ -182,6 +190,10 @@ KAIROS_VIDEOS_ROOT=E:\KAIROS_VIDEOS
   "scriptModel": "MiniMax-M3"
 }
 ```
+
+> `externalRoot` tem prioridade sobre a detecção automática — use quando você
+> quiser forçar um HD específico (ex.: um externo de backup em vez do
+> pendrive do mês).
 
 **Regra de segurança:** se o HD não estiver montado, o `videos:export`
 **não apaga nem move** o arquivo original — ele avisa e devolve o caminho
