@@ -17,6 +17,23 @@ export interface KairósDB {
   close: () => void;
 }
 
+/** Adiciona uma coluna se ainda não existir (idempotente, preserva dados). */
+function ensureColumn(db: Database.Database, table: string, column: string, type: string): void {
+  const cols = db.prepare(`PRAGMA table_info(${table})`).all() as { name: string }[];
+  if (!cols.length) return; // tabela ainda não existe
+  if (cols.some((c) => c.name === column)) return;
+  db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${type}`);
+}
+
+/** Executa um statement best-effort (ignora erro de objeto já existente). */
+function safeExec(db: Database.Database, sql: string): void {
+  try {
+    db.exec(sql);
+  } catch {
+    /* best-effort */
+  }
+}
+
 export function openDatabase(workspaceDir: string): KairósDB {
   if (!fs.existsSync(workspaceDir)) {
     fs.mkdirSync(workspaceDir, { recursive: true });
@@ -26,7 +43,8 @@ export function openDatabase(workspaceDir: string): KairósDB {
   raw.pragma("journal_mode = WAL");
   raw.pragma("foreign_keys = ON");
 
-  // Schema
+  // Schema — apenas tabelas. `IF NOT EXISTS` NÃO adiciona colunas em tabelas
+  // já existentes, por isso as colunas novas são tratadas nas migrations abaixo.
   raw.exec(`
     CREATE TABLE IF NOT EXISTS conversations (
       id TEXT PRIMARY KEY,
@@ -59,16 +77,22 @@ export function openDatabase(workspaceDir: string): KairósDB {
       context TEXT,
       created_at INTEGER NOT NULL
     );
-
-    CREATE INDEX IF NOT EXISTS idx_messages_conversation ON messages(conversation_id);
-    CREATE INDEX IF NOT EXISTS idx_messages_created_at ON messages(created_at);
-    CREATE INDEX IF NOT EXISTS idx_conversations_client ON conversations(client_id);
-    CREATE INDEX IF NOT EXISTS idx_messages_client ON messages(client_id);
   `);
 
   // Migrations idempotentes — ADD COLUMN em tabelas pre-existentes.
-  try { raw.exec(`ALTER TABLE conversations ADD COLUMN client_id TEXT`); } catch { /* coluna já existe */ }
-  try { raw.exec(`ALTER TABLE messages ADD COLUMN client_id TEXT`); } catch { /* coluna já existe */ }
+  // IMPORTANTE: rodam ANTES dos índices que referenciam as colunas novas.
+  // Se um índice sobre `client_id` fosse criado antes, o `exec` abortaria com
+  // "no such column: client_id" em bancos criados antes do multi-tenant.
+  ensureColumn(raw, "conversations", "client_id", "TEXT");
+  ensureColumn(raw, "messages", "client_id", "TEXT");
+
+  // Índices
+  raw.exec(`
+    CREATE INDEX IF NOT EXISTS idx_messages_conversation ON messages(conversation_id);
+    CREATE INDEX IF NOT EXISTS idx_messages_created_at ON messages(created_at);
+  `);
+  safeExec(raw, `CREATE INDEX IF NOT EXISTS idx_conversations_client ON conversations(client_id)`);
+  safeExec(raw, `CREATE INDEX IF NOT EXISTS idx_messages_client ON messages(client_id)`);
 
   return {
     raw,

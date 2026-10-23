@@ -53,11 +53,12 @@ CREATE INDEX IF NOT EXISTS bizctx_client_idx ON business_context(client_id);
 let schemaReady = false;
 function ensureSchema(db: Database.Database): void {
   if (schemaReady) return;
+  // Migrations ANTES do schema: em tabelas legadas (sem `client_id`) o
+  // `CREATE INDEX ... (client_id)` abortaria o loop e o schema nunca fecharia.
+  try { db.exec("ALTER TABLE business_context ADD COLUMN client_id TEXT"); } catch { /* já existe ou tabela ausente */ }
   for (const stmt of SCHEMA.split(";").map((s) => s.trim()).filter(Boolean)) {
-    db.exec(stmt);
+    try { db.exec(stmt); } catch { /* best-effort: índice/coluna já existente */ }
   }
-  // migrations idempotentes (de tabelas pre-existentes)
-  try { db.exec("ALTER TABLE business_context ADD COLUMN client_id TEXT"); } catch { /* já existe */ }
   // UNIQUE(client_id, key) precisa ser recriado pra incluir client_id.
   // Estratégia: dedup por (client_id, key) e dropar índice antigo.
   try {
