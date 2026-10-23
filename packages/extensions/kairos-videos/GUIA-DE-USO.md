@@ -14,7 +14,8 @@ O app já está instalado e com as 6 tools ativas.
 2. No chat, pede: *"cria um projeto de vídeo chamado teste-kairos"*
    → a tool `videos:project` cria as 6 pastas em `C:\Users\ferna\Videos\KAIROS_VIDEOS\`.
 3. Pede: *"lista as vozes em português"* → a tool `videos:voice` devolve as 73 vozes PT-BR.
-4. Pede: *"gera um vídeo de 30s sobre o painel de conversas do Kairós CRM"*
+4. Pede: *"busca vídeos virais sobre CRM"* → a tool `videos:source` lista com views e link.
+5. Pede: *"gera um vídeo de 30s sobre o painel de conversas do Kairós CRM"*
    → `videos:script` devolve o roteiro.
 
 Se o app não abrir ou der `no such column: client_id`, o banco local precisa da
@@ -26,16 +27,17 @@ migração — o app já faz isso sozinho na próxima abertura (ver §6).
 
 | Item | Status | Observação |
 |---|---|---|
-| App Kairós Desktop Pi | ✅ | A extension já está registrada (23ª extension) |
+| App Kairós Desktop Pi | ✅ | A extension já está registrada (24ª extension) |
 | Chave MiniMax nas Configurações | ✅ necessária | Usada pelo roteiro (LLM) e pela narração (TTS) |
 | ffmpeg | ✅ embutido | `ffmpeg-static` já vem no bundle do app — não instalar nada |
+| yt-dlp | ✅ necessário | Só pra `videos:source` (buscar viral). Já instalado: `pip install yt-dlp` |
 | GPU (NVENC) | ✅ opcional | Acelera o render; sem GPU, cai para libx264 automaticamente |
 | OBS Studio | ✅ instalado | Para gravar a tela (recomendado) |
 | HD externo | ⚠️ opcional | Sem ele, o export avisa e **não apaga** nada |
 
 ---
 
-## 2. Fluxo em 6 passos
+## 2. Fluxo em 7 passos
 
 ### Passo 1 — Gravar a tela (OBS Studio)
 
@@ -67,7 +69,36 @@ KAIROS_VIDEOS/kairos-crm/
   06_ARQUIVADOS
 ```
 
-### Passo 3 — Gerar o roteiro
+### Passo 3 — Pegar um viral de referência (opcional)
+
+> *"busca vídeos virais sobre CRM"*
+
+A tool `videos:source` procura no YouTube (via yt-dlp) e devolve a lista com
+título, visualizações, duração, canal e link:
+
+| Título | Duração | Views | Canal |
+|---|---|---|---|
+| AI CRM for Real Estate Agents | 0:36 | 23 | Kairos pgs |
+| Video Demo Sistema Kairos | 5:33 | 591 | kairos evolucionatunegocio |
+
+Filtros que dá pra pedir:
+
+- *"busca vídeos de automação pastoral com mais de 50 mil views"* → `minViews`
+- *"busca shorts de IA com no máximo 60 segundos"* → `maxDurationSec`
+
+Depois de escolher, baixe:
+
+> *"baixa esse vídeo no projeto kairos-crm"*
+
+O arquivo cai em `KAIROS_VIDEOS/<projeto>/_fontes/` e já serve de insumo
+pro `videos:compose` montar por cima (sua narração + legendas + CTA).
+
+> ⚠️ **Direitos autorais:** o material baixado é **referência**. Republicar o
+> vídeo original exige autorização do autor. O Kairós nunca publica sozinho.
+> Se quiser um link direto (TikTok, Instagram, X...), cole o link e peça
+> *"baixa esse link"* — o yt-dlp entende várias plataformas.
+
+### Passo 4 — Gerar o roteiro
 
 Descreva o que aparece na tela:
 
@@ -83,7 +114,7 @@ A tool `videos:script` devolve:
 > ⚠️ **A IA não inventa functionality.** Se ela não souber o que uma tela faz,
 > marca `[CONFIRMAR: ...]` em vez de inventar. Sempre leia o roteiro antes de gravar.
 
-### Passo 4 — Narração
+### Passo 5 — Narração
 
 **Opção A — sua voz (grátis):**
 Grave no Gravador do Windows / OBS / celular e mande o MP3 para a pasta do projeto.
@@ -97,7 +128,7 @@ Para ver as 73 vozes PT-BR: *"lista as vozes em português"*
 > **Clonagem da sua voz via IA está bloqueada** no plano MiniMax atual
 > (erro 2061). Para ter a sua voz, use a Opção A.
 
-### Passo 5 — Legendas
+### Passo 6 — Legendas
 
 > *"gera as legendas com o texto do roteiro"*
 
@@ -106,7 +137,7 @@ que fica bem em tela vertical, com contorno e sombra.
 
 Também aceita um SRT pronto: `videos:subtitles` com o caminho do `.srt`.
 
-### Passo 6 — Montar
+### Passo 7 — Montar
 
 > *"monta o vídeo vertical com a narração e as legendas"*
 
@@ -164,6 +195,7 @@ temporário. Conecte o HD e rode o export de novo.
 |---|---|---|
 | `videos:project` | `name`, `root?`, `setAsRoot?` | início de cada vídeo |
 | `videos:script` | `description`, `appName?`, `durationSec?` | transformar telas em roteiro |
+| `videos:source` | `mode: search\|download\|info`, `query?`, `url?`, `limit?`, `minViews?`, `maxDurationSec?`, `project?` | buscar/baixar viral de referência |
 | `videos:voice` | `mode: list\|generate`, `text?`, `voiceId?`, `model?` | narração |
 | `videos:subtitles` | `srt?` ou `cues?`, `width?`, `height?` | legendas |
 | `videos:compose` | `input`, `audio?`, `subtitles?`, `cta?`, `useGpu?` | montagem final |
@@ -176,6 +208,8 @@ temporário. Conecte o HD e rode o export de novo.
 | Sintoma | Causa | Solução |
 |---|---|---|
 | App não abre: `SqliteError: no such column: client_id` | banco local criado antes do multi-tenant; o índice era criado **antes** do `ALTER TABLE` | **Já resolvido** — a ordem agora é tabelas → migrations → índices. Se persistir, o app migra sozinho na próxima abertura |
+| `videos:source` → "yt-dlp não encontrado" | yt-dlp não está no PATH nem nas pastas do Python | `pip install yt-dlp` ou defina `YTDLP_PATH` com o caminho do executável |
+| `videos:source` → "Busca no YouTube falhou" | sem internet ou YouTube mudou a página | testar `yt-dlp --version` no terminal; se falhar, usar link direto (modo download) |
 | Roteiro sai vazio | `maxTokens` cortou o raciocínio do modelo thinking | Já resolvido (3000 tokens). Se persistir, use `MiniMax-M2.7-highspeed` |
 | Narração sai com o rascunho do modelo | MiniMax M3 é "thinking model" | Já resolvido — o bloco `<think>` é removido automaticamente |
 | ffmpeg: *"Error initializing a simple filtergraph"* | path do `.ass` sem escape no Windows | Já resolvido — a extension escapa o path automaticamente |
