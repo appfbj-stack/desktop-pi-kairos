@@ -26,6 +26,8 @@
     "appId": "com.kairos.desktop.alves",
     "productName": "Kairós Desktop Alves",
     "copyright": "Copyright © 2026 Fernando Borges",
+    "npmRebuild": false,
+    "electronVersion": "33.4.11",
     "directories": {
       "output": "release",
       "buildResources": "build"
@@ -76,7 +78,11 @@
       "uninstallDisplayName": "Kairós Desktop Alves",
       "deleteAppDataOnUninstall": false
     },
-    "publish": "./build/publish.json"
+    "publish": {
+      "provider": "github",
+      "owner": "appfbj-stack",
+      "repo": "desktop-pi-kairos"
+    }
   },
   "dependencies": {
     "@kairos/agent": "workspace:*",
