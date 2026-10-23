@@ -25,6 +25,7 @@ import { loadProviderConfig, saveProviderConfig } from "./config-store.js";
 import { getBundledProviderConfig } from "./builtin-provider.js";
 import kairosStream from "@kairos/extension-stream";
 import kairosVideo from "@kairos/extension-video";
+import kairosVideos from "@kairos/extension-videos";
 import kairosFiles from "@kairos/extension-files";
 import kairosSpreadsheets from "@kairos/extension-spreadsheets";
 import kairosPdfCreate from "@kairos/extension-pdf-create";
@@ -117,6 +118,7 @@ export async function getAgent(sessionId: string): Promise<Agent> {
       "kairos-images",
       "kairos-stream",
       "kairos-video",
+      "kairos-videos",
       "kairos-intelligence",
       "kairos-agenda",
       "kairos-ocr",
@@ -143,6 +145,7 @@ export async function getAgent(sessionId: string): Promise<Agent> {
   registerExtension(agent.tools, kairosImages);
   registerExtension(agent.tools, kairosStream);
   registerExtension(agent.tools, kairosVideo);
+  registerExtension(agent.tools, kairosVideos);
   registerExtension(agent.tools, kairosIntelligence);
   registerExtension(agent.tools, kairosAgenda);
   registerExtension(agent.tools, kairosOcr);
